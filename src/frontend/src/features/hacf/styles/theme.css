@@ -1,0 +1,286 @@
+/*
+ * HACF theme for the whole Meet interface.
+ *
+ * Panda CSS emits its tokens inside `@layer tokens`; these declarations are
+ * unlayered, so they take precedence without touching panda.config.ts nor any
+ * upstream component. Imported once from src/main.tsx.
+ *
+ * Palette: HACF blue (oklch hue 262) for the scale, with the violet of the
+ * HACF gradient (blue → violet → red) for hover / pressed states.
+ * WCAG contrast with white text: primary 5.09:1, hover 6.04:1, active 7.51:1;
+ * primary-800 text on primary-100 (toggle buttons): 4.66:1.
+ */
+@import './hacf.css';
+
+:root {
+  /* Scale: same roles as upstream (50–500 light → mid, 600–950 dark, 800 = main). */
+  --colors-primary-50: oklch(98.5% 0.006 262);
+  --colors-primary-100: oklch(97% 0.012 262);
+  --colors-primary-200: oklch(92% 0.035 262);
+  --colors-primary-300: oklch(86% 0.06 262);
+  --colors-primary-400: oklch(72% 0.14 262);
+  --colors-primary-500: oklch(62% 0.19 262);
+  --colors-primary-600: oklch(40% 0.12 262);
+  --colors-primary-700: oklch(30% 0.07 262);
+  --colors-primary-800: oklch(55% 0.22 262);
+  --colors-primary-900: oklch(25% 0.06 262);
+  --colors-primary-950: oklch(22% 0.05 262);
+  --colors-primary-action: oklch(52% 0.17 330);
+
+  /* Semantic tokens */
+  --colors-primary: oklch(55% 0.22 262);
+  --colors-primary-hover: oklch(52% 0.17 330);
+  --colors-primary-active: oklch(47% 0.17 330);
+  --colors-primary-warm: oklch(86% 0.06 262);
+  --colors-primary-subtle: oklch(95% 0.02 262);
+  --colors-primary-subtle-text: oklch(45% 0.19 262);
+
+  /* ≥ 3:1 on white (3.74:1), the room background (4.79:1) and the dark control
+   * buttons (3.56:1); a bit lighter than the brand blue for that reason. */
+  --colors-focus-ring: oklch(62% 0.19 262);
+}
+
+/*
+ * Conference palette (dark control bar, menus, active buttons): same lightness
+ * as upstream, hue moved from lavender (~284) to the HACF blue (262), so
+ * contrasts are unchanged.
+ */
+:root {
+  --colors-primary-dark-50: oklch(20.6% 0.024 262);
+  --colors-primary-dark-75: oklch(26.1% 0.034 262);
+  --colors-primary-dark-100: oklch(30.9% 0.045 262);
+  --colors-primary-dark-200: oklch(40.1% 0.065 262);
+  --colors-primary-dark-300: oklch(49.1% 0.084 262);
+  --colors-primary-dark-400: oklch(57.4% 0.102 262);
+  --colors-primary-dark-500: oklch(65.7% 0.118 262);
+  --colors-primary-dark-600: oklch(72.1% 0.095 262);
+  --colors-primary-dark-700: oklch(78.5% 0.074 262);
+  --colors-primary-dark-800: oklch(84.8% 0.051 262);
+  --colors-primary-dark-900: oklch(91.1% 0.031 262);
+  --colors-primary-dark-950: oklch(97.3% 0.012 262);
+  --colors-primary-dark-action: oklch(83.1% 0.081 262);
+}
+
+/*
+ * Dark HACF interface, everywhere: pages, dialogs, menus, lists, side panels.
+ * The upstream light tokens (text, boxes, form controls, greys) are redefined
+ * globally; the conference itself already uses Meet's dark palette.
+ * Contrast on #0b0b10 / #15151c: text 17:1, subtle text 9:1, field borders ≥ 3:1.
+ */
+:root {
+  --colors-default-text: #f4f3f7;
+  --colors-default-subtle-text: #b4b3bf;
+  --colors-default-bg: #0b0b10;
+  --colors-default-subtle: #1d1d26;
+  --colors-box-bg: #15151c;
+  --colors-box-text: #f4f3f7;
+  --colors-box-border: rgb(255 255 255 / 0.12);
+  --colors-control: #15151c;
+  --colors-control-hover: #22222c;
+  --colors-control-active: #2c2c38;
+  --colors-control-text: #f4f3f7;
+  /* ≥ 3:1 against the background for form field boundaries (WCAG 1.4.11). */
+  --colors-control-border: rgb(255 255 255 / 0.45);
+  --colors-control-subtle: #8e8d99;
+  /* Neutral greys used for hovers, borders and labels. */
+  --colors-greyscale-50: #1d1d26;
+  --colors-greyscale-100: #22222c;
+  --colors-gray-100: #22222c;
+  --colors-gray-300: rgb(255 255 255 / 0.2);
+  --colors-gray-600: #b4b3bf;
+  /* Badge (e.g. logged-in account in the settings). */
+  --colors-primary-subtle: oklch(30% 0.07 262);
+  --colors-primary-subtle-text: oklch(88% 0.05 262);
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0b0b10;
+  color: var(--colors-default-text);
+}
+
+:is(input, textarea) {
+  background-color: var(--colors-control);
+}
+
+/* Light panels (login hint, feedback banner) keep dark text. */
+:is([class~='bg-c_primary.200'], [class~='bg-c_primary.50']) {
+  --colors-default-text: var(--colors-greyscale-1000);
+  --colors-default-subtle-text: var(--colors-gray-600);
+  color: var(--colors-default-text);
+}
+
+/*
+ * Hard-coded light colors in upstream components (atomic Panda class names):
+ * white "secondary" / rating buttons become ghost buttons like on the home page,
+ * blue text (links, dialog close, text buttons) becomes light.
+ */
+[class~='bg-c_white'] {
+  background-color: rgb(255 255 255 / 0.04);
+
+  &[data-hovered] {
+    background-color: rgb(255 255 255 / 0.1);
+  }
+}
+
+:is([class~='c_primary.800'], [class~='c_primary.900'], [class~='c_initial']) {
+  color: var(--colors-default-text);
+}
+
+/* Light bands (page title of legal pages, toggle buttons, own reactions). */
+[class~='bg-c_primary.100'] {
+  background-color: rgb(255 255 255 / 0.05);
+}
+
+/* Hard-coded dark text (greyscale.1000) and pure blue links. */
+[class~='c_greyscale.1000']:not(
+  :is([class~='bg-c_primary.200'], [class~='bg-c_primary.50']) *
+) {
+  color: var(--colors-default-text);
+}
+
+/* Hard-coded grey (#666) and black text: too dark on the dark surfaces. */
+[class~='c_greyscale.600'] {
+  color: var(--colors-default-subtle-text);
+}
+
+[class~='c_black']:not(
+  :is([class~='bg-c_primary.200'], [class~='bg-c_primary.50']) *
+) {
+  color: var(--colors-default-text);
+}
+
+[class~='c_blue'] {
+  color: oklch(80% 0.1 262);
+}
+
+[class~='bd-c_primary.800'] {
+  border-color: rgb(255 255 255 / 0.45);
+}
+
+/* Settings dialog: the tab rail separator is a hard-coded light grey. */
+[class~='bd-r_1px_solid_lightGray'] {
+  border-right-color: rgb(255 255 255 / 0.12);
+}
+
+/*
+ * Menu items reserve room on the left for the "✓" of selectable lists; action
+ * menus (user menu with "log out") have nothing to check: drop the gap…
+ */
+[role='menuitem']:not([data-selection-mode]) {
+  padding-left: 0.5rem;
+}
+
+/* …and the 10rem minimum width of the menu box, wider than a short action. */
+[class~='min-w_10rem']:has([role='menuitem']:not([data-selection-mode])) {
+  min-width: 0;
+}
+
+/* Dialogs: HACF glow around the panel. */
+[role='dialog'] [class~='bg-c_box.bg'] {
+  box-shadow:
+    0 30px 80px -30px oklch(52% 0.17 330 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+/*
+ * Header logo (all pages using the upstream <Header>): the upstream
+ * `.Header-beforeLogo` hook shows the HACF banner. The upstream logo image is
+ * removed and the banner's text is provided to assistive technologies by the
+ * ::after content.
+ */
+.Header-logo {
+  display: none !important;
+}
+
+a:has(> .Header-beforeLogo) {
+  gap: 0 !important;
+}
+
+.Header-beforeLogo {
+  display: block !important;
+  position: relative;
+  width: 197px;
+  height: 32px;
+  background: url('../assets/images/hacf-banner-light-text.webp') left center /
+    contain no-repeat;
+}
+
+@media (min-width: 40em) {
+  .Header-beforeLogo {
+    width: 246px;
+    height: 40px;
+  }
+}
+
+.Header-beforeLogo::after {
+  content: 'Home Assistant Communauté Francophone – HACF Meet';
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Pages (everything but the conference): background, halo, header. */
+#root:not(:has(.lk-room-container)) {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  background-color: #0b0b10;
+
+  &::before {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    width: min(1100px, 150%);
+    aspect-ratio: 2.2 / 1;
+    transform: translate(-50%, -50%);
+    background:
+      radial-gradient(
+        closest-side at 22% 55%,
+        oklch(55% 0.22 262 / 0.4),
+        transparent
+      ),
+      radial-gradient(
+        closest-side at 50% 45%,
+        oklch(52% 0.17 330 / 0.3),
+        transparent
+      ),
+      radial-gradient(
+        closest-side at 78% 58%,
+        oklch(60% 0.22 28 / 0.28),
+        transparent
+      );
+    filter: blur(70px);
+    pointer-events: none;
+  }
+
+  /* Upstream Layout paints the page white. */
+  & :has(> main#main-content) {
+    background-color: transparent;
+  }
+
+  /* Header text buttons (user menu, settings) use primary.800, too dark here. */
+  & nav button {
+    color: var(--colors-default-text);
+  }
+
+  & :is(nav button, a:has(> .Header-beforeLogo)):is([data-hovered], :hover) {
+    background-color: rgb(255 255 255 / 0.08);
+  }
+
+  /*
+   * The camera preview hides the blue part of the page halo: give the preview
+   * frame its own glow (blue on the left, violet on the right), which follows
+   * it in every layout. The frame is the ancestor of the preview <video>.
+   */
+  & main div:has(> div > div > [role='status'] video) {
+    box-shadow:
+      -36px -12px 90px -6px oklch(55% 0.22 262 / 0.6),
+      36px 18px 90px -6px oklch(52% 0.17 330 / 0.45);
+  }
+}
