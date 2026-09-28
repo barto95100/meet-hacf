@@ -150,6 +150,14 @@ body {
   color: var(--colors-default-text);
 }
 
+/*
+ * gray.100 is darkened above because it is mostly a background (chat input,
+ * hovered tabs, LiveKit --lk-bg2), but tooltips use it as their text color.
+ */
+[class~='c_gray.100'] {
+  color: var(--colors-default-text);
+}
+
 [class~='c_blue'] {
   color: oklch(80% 0.1 262);
 }
