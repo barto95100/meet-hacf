@@ -1,0 +1,23 @@
+{
+  "eyebrow": "La visio de la communauté",
+  "heading": "Toute la communauté,",
+  "headingHighlight": "dans la même pièce.",
+  "intro": "Lives, ateliers et entraide autour de Home Assistant : retrouvez les passionnés francophones de la maison connectée, en visio, en un instant.",
+  "memberPrompt": "Membre de la communauté ?",
+  "header": {
+    "brand": "Home Assistant Communauté Francophone – HACF Meet, accueil",
+    "accountMenu": "Menu du compte",
+    "logout": "Déconnexion"
+  },
+  "join": {
+    "placeholder": "Code de la salle : abc-defg-hij",
+    "emptyError": "Saisissez le code de salle reçu dans votre invitation."
+  },
+  "create": {
+    "instant": "Réunion instantanée",
+    "later": "Créer un lien de réunion",
+    "copy": "Copier",
+    "copied": "Copié",
+    "shareHint": "Partagez ce lien : vos invités rejoignent directement, sans compte."
+  }
+}

@@ -1,7 +1,7 @@
 import { flexibleRoomIdPattern } from '@/features/rooms'
 import { ComponentType, lazy, LazyExoticComponent } from 'react'
 
-const HomeRoute = lazy(() => import('@/features/home/routes/Home'))
+const HomeRoute = lazy(() => import('@/features/hacf/routes/HacfHome'))
 const RecordingDownloadRoute = lazy(
   () => import('@/features/recording/routes/RecordingDownload')
 )

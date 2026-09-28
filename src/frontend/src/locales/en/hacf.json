@@ -1,0 +1,23 @@
+{
+  "eyebrow": "The community's video calls",
+  "heading": "The whole community,",
+  "headingHighlight": "in the same room.",
+  "intro": "Live streams, workshops and mutual help around Home Assistant: meet French-speaking smart home enthusiasts on video, in an instant.",
+  "memberPrompt": "Community member?",
+  "header": {
+    "brand": "Home Assistant Communauté Francophone – HACF Meet, home",
+    "accountMenu": "Account menu",
+    "logout": "Log out"
+  },
+  "join": {
+    "placeholder": "Room code: abc-defg-hij",
+    "emptyError": "Enter the room code from your invitation."
+  },
+  "create": {
+    "instant": "Instant meeting",
+    "later": "Create a meeting link",
+    "copy": "Copy",
+    "copied": "Copied",
+    "shareHint": "Share this link: your guests join directly, no account needed."
+  }
+}
