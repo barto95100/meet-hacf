@@ -1,0 +1,245 @@
+# HACF fork: rebuild the customised frontend image for each new upstream release.
+#
+# - Detects the latest upstream tag vX.Y.Z (suitenumerique/meet).
+# - If ghcr.io/<owner>/meet-frontend:vX.Y.Z-hacf does not exist yet, replays the
+#   commits of the `hacf` branch on top of that tag.
+# - On conflict: opens an issue and stops, nothing is built.
+# - Otherwise: builds ONLY the frontend image (same Dockerfile / context / target
+#   as the official docker-hub.yml workflow, plus the VITE_APP_TITLE build arg),
+#   pushes it to GHCR, then updates `hacf`.
+# - No deployment.
+name: HACF frontend image
+run-name: HACF frontend image
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Rebuild and overwrite the image even if the tag already exists'
+        type: boolean
+        default: false
+
+# Nothing by default: permissions are granted per job below.
+permissions: {}
+
+concurrency:
+  group: hacf-frontend-image
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPOSITORY: suitenumerique/meet
+  HACF_BRANCH: hacf
+  IMAGE_NAME: meet-frontend
+  # Same values as the official docker-hub.yml workflow (frontend-generic job, tag build).
+  DOCKER_USER: 1001:127
+  BUILD_PLATFORMS: linux/amd64,linux/arm64
+  # Only addition to the official build: the instance name shown in the UI (tab
+  # title, room title, device permission messages). The official build leaves it
+  # empty, which also overrides the "LaSuite Meet" value of .env.production.
+  APP_TITLE: HACF Meet
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the rebased `hacf` branch
+      packages: write # publish the image on GHCR
+      issues: write # open an issue on rebase conflict
+    steps:
+      -
+        name: Checkout hacf branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.HACF_BRANCH }}
+          fetch-depth: 0
+          # Pushing a branch whose history touches .github/workflows/ requires the
+          # `workflows` scope, which GITHUB_TOKEN cannot have: use a PAT if provided.
+          token: ${{ secrets.HACF_PUSH_TOKEN || github.token }}
+      -
+        name: Resolve versions
+        id: versions
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --force "https://github.com/${UPSTREAM_REPOSITORY}.git" \
+            '+refs/tags/v*:refs/tags/v*'
+
+          latest="$(git tag --list 'v*' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)"
+          base="$(git describe --tags --abbrev=0 \
+            --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD)"
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}"
+
+          if [ "$(printf '%s\n%s\n' "$base" "$latest" | sort -V | tail -n 1)" != "$latest" ]; then
+            echo "::error::hacf is based on ${base}, newer than upstream latest ${latest}"
+            exit 1
+          fi
+
+          {
+            echo "latest=${latest}"
+            echo "base=${base}"
+            echo "image=${image}"
+            echo "tag=${latest}-hacf"
+          } >> "$GITHUB_OUTPUT"
+          echo "Upstream latest: ${latest} — hacf based on: ${base} — image: ${image}:${latest}-hacf"
+      -
+        name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      -
+        name: Check whether the image already exists
+        id: check
+        env:
+          IMAGE_REF: ${{ steps.versions.outputs.image }}:${{ steps.versions.outputs.tag }}
+          FORCE_BUILD: ${{ inputs.force_build || false }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          BASE: ${{ steps.versions.outputs.base }}
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "$IMAGE_REF" > /dev/null 2>&1; then
+            exists=true
+          else
+            exists=false
+          fi
+
+          build=false
+          if [ "$exists" = false ] || [ "$FORCE_BUILD" = true ]; then
+            build=true
+          fi
+
+          # Image already published but branch not rebased (e.g. previous push failed):
+          # only replay the commits and push the branch.
+          rebase=false
+          if [ "$build" = true ] || [ "$BASE" != "$LATEST" ]; then
+            rebase=true
+          fi
+
+          echo "exists=${exists}" >> "$GITHUB_OUTPUT"
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "rebase=${rebase}" >> "$GITHUB_OUTPUT"
+          echo "Image exists: ${exists} — build: ${build} — rebase: ${rebase}"
+      -
+        name: Replay hacf commits on the upstream tag
+        id: rebase
+        if: steps.check.outputs.rebase == 'true'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+          BASE: ${{ steps.versions.outputs.base }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          echo "old_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+          if [ "$BASE" = "$LATEST" ]; then
+            echo "hacf is already based on ${LATEST}, nothing to replay."
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Replaying $(git rev-list --count "${BASE}..HEAD") commit(s) from ${BASE} onto ${LATEST}"
+          if git rebase --onto "$LATEST" "$BASE" HEAD; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "conflict=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "stopped_commit=$(git log -1 --format='%h %s' REBASE_HEAD 2>/dev/null || echo '?')"
+            echo 'conflicted_files<<EOF'
+            git diff --name-only --diff-filter=U
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          git rebase --abort
+      -
+        name: Open an issue on conflict
+        if: steps.rebase.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          BASE: ${{ steps.versions.outputs.base }}
+          STOPPED_COMMIT: ${{ steps.rebase.outputs.stopped_commit }}
+          CONFLICTED_FILES: ${{ steps.rebase.outputs.conflicted_files }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Conflit de rebase HACF sur ${LATEST}"
+          files="$(printf '%s\n' "$CONFLICTED_FILES" | sed '/^$/d; s/.*/- `&`/')"
+          body="$(cat <<EOF
+          Le rejeu des commits de la branche \`${HACF_BRANCH}\` (basée sur \`${BASE}\`) sur le tag upstream \`${LATEST}\` a échoué. **Aucune image n'a été construite.**
+
+          **Commit en conflit :** \`${STOPPED_COMMIT}\`
+
+          **Fichiers en conflit :**
+          ${files}
+
+          **Exécution :** ${RUN_URL}
+
+          ### Résolution
+          \`\`\`sh
+          git fetch origin
+          git fetch https://github.com/${UPSTREAM_REPOSITORY}.git '+refs/tags/v*:refs/tags/v*'
+          git switch ${HACF_BRANCH} && git reset --hard origin/${HACF_BRANCH}
+          git rebase --onto ${LATEST} ${BASE} ${HACF_BRANCH}
+          # résoudre les conflits, puis : git add … && git rebase --continue
+          git push --force-with-lease origin ${HACF_BRANCH}
+          \`\`\`
+          Relancer ensuite le workflow « HACF frontend image » (Actions → Run workflow), puis fermer cette issue.
+          EOF
+          )"
+
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "\"${title}\" in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Issue #${existing} already open, adding a comment."
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+          echo "::error::Rebase conflict on ${LATEST}, see the opened issue."
+          exit 1
+      -
+        name: Set up QEMU
+        if: steps.check.outputs.build == 'true'
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      -
+        name: Set up Docker Buildx
+        if: steps.check.outputs.build == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      -
+        name: Docker meta
+        id: meta
+        if: steps.check.outputs.build == 'true'
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ steps.versions.outputs.image }}
+          tags: type=raw,value=${{ steps.versions.outputs.tag }}
+      -
+        name: Build and push
+        if: steps.check.outputs.build == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./src/frontend/Dockerfile
+          target: frontend-production
+          platforms: ${{ env.BUILD_PLATFORMS }}
+          build-args: |
+            DOCKER_USER=${{ env.DOCKER_USER }}:-1000
+            VITE_APP_TITLE=${{ env.APP_TITLE }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      -
+        name: Update hacf branch
+        if: steps.check.outputs.rebase == 'true' && steps.versions.outputs.base != steps.versions.outputs.latest
+        env:
+          OLD_HEAD: ${{ steps.rebase.outputs.old_head }}
+        run: |
+          set -euo pipefail
+          git push --force-with-lease="refs/heads/${HACF_BRANCH}:${OLD_HEAD}" \
+            origin "HEAD:refs/heads/${HACF_BRANCH}"
