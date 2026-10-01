@@ -19,7 +19,7 @@ const TermsOfServiceRoute = lazy(
 const AccessibilityRoute = lazy(
   () => import('@/features/legalsTerms/Accessibility')
 )
-const RoomRoute = lazy(() => import('@/features/rooms/routes/Room'))
+const RoomRoute = lazy(() => import('@/features/hacf/routes/HacfRoom'))
 const FeedbackRoute = lazy(() => import('@/features/rooms/routes/Feedback'))
 const ConnectionTestRoute = lazy(
   () => import('@/features/diagnostics/routes/ConnectionTest')
