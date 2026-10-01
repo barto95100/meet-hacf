@@ -212,7 +212,19 @@ ALLOWED_GROUP=Infra
 LIVEKIT_URL=http://livekit:7880
 LIVEKIT_API_KEY=<même valeur que le backend>
 LIVEKIT_API_SECRET=<même valeur que le backend>
+LIVEKIT_PROMETHEUS_URL=http://livekit:6789/metrics   # optionnel (santé serveur)
 ```
+
+Pour la section « Serveur LiveKit » (qualité, débit, pertes, mémoire, sur la dernière
+heure, sans Prometheus ni Grafana), activer le port Prometheus de LiveKit dans sa
+configuration (`livekit.yaml`) :
+
+```yaml
+prometheus_port: 6789
+```
+
+Ce port reste interne (jamais exposé par le reverse proxy) ; seul le service
+`supervision` le lit.
 
 **3. Route nginx** dans `default.conf.template` (bloc `server`, avant `location /`), puis
 `docker compose up -d --force-recreate frontend` :

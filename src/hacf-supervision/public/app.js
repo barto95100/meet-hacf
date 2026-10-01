@@ -156,6 +156,62 @@ const roomCard = (room, meetUrl) => {
   )
 }
 
+const svgNS = 'http://www.w3.org/2000/svg'
+const svgEl = (tag, attrs) => {
+  const node = document.createElementNS(svgNS, tag)
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v)
+  return node
+}
+
+const sparkline = (values) => {
+  const points = values.filter((v) => v !== null && v !== undefined)
+  if (points.length < 2) return null
+  const max = Math.max(...points, 0.01)
+  const w = 160
+  const h = 32
+  const step = w / (values.length - 1)
+  let d = ''
+  values.forEach((v, i) => {
+    if (v === null || v === undefined) return
+    const x = (i * step).toFixed(1)
+    const y = (h - 2 - (v / max) * (h - 4)).toFixed(1)
+    d += `${d ? 'L' : 'M'}${x} ${y}`
+  })
+  const svg = svgEl('svg', { class: 'spark', viewBox: `0 0 ${w} ${h}`, 'aria-hidden': 'true' })
+  const defs = svgEl('defs', {})
+  const grad = svgEl('linearGradient', { id: 'spark-gradient', x1: '0', y1: '0', x2: '1', y2: '0' })
+  grad.append(
+    svgEl('stop', { offset: '0', 'stop-color': 'oklch(55% 0.22 262)' }),
+    svgEl('stop', { offset: '0.5', 'stop-color': 'oklch(52% 0.17 330)' }),
+    svgEl('stop', { offset: '1', 'stop-color': 'oklch(60% 0.22 28)' })
+  )
+  defs.append(grad)
+  svg.append(defs, svgEl('path', { d }))
+  return svg
+}
+
+const metricCard = (card) =>
+  el(
+    'div',
+    { class: `metric ${card.tone || 'neutral'}` },
+    el('div', { class: 'm-value' }, String(card.value), el('span', { class: 'm-unit' }, card.unit || '')),
+    el('div', { class: 'm-label' }, card.label)
+  )
+
+const renderServer = (metrics) => {
+  const section = $('server')
+  if (!metrics || !metrics.available || metrics.pending || !metrics.cards?.length) {
+    section.hidden = true
+    return
+  }
+  section.hidden = false
+  $('server-cards').replaceChildren(...metrics.cards.map(metricCard))
+  const spark = sparkline(metrics.series?.bandwidth || [])
+  $('server-spark').replaceChildren(
+    ...(spark ? [spark, el('span', { class: 'visually-hidden' }, 'Débit sur la dernière heure')] : [])
+  )
+}
+
 const stat = (value, label) => el('div', { class: 'stat' }, el('strong', {}, value), el('span', {}, label))
 
 const render = ({ rooms, meetUrl, generatedAt }) => {
@@ -183,6 +239,7 @@ const render = ({ rooms, meetUrl, generatedAt }) => {
 const showMessage = (title, body, link) => {
   $('heading').hidden = true
   $('summary').hidden = true
+  $('server').hidden = true
   $('rooms').replaceChildren()
   $('message').hidden = false
   $('message-title').textContent = title
@@ -222,6 +279,10 @@ const load = async () => {
     const data = await res.json()
     const first = !$('rooms').children.length
     render(data)
+    fetch(`${API}/metrics`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(renderServer)
+      .catch(() => {})
     if (first && highlighted) document.getElementById(`room-${highlighted}`)?.scrollIntoView({ block: 'center' })
   } catch {
     $('status').textContent = 'Impossible de joindre le serveur, nouvel essai dans 10 secondes…'
