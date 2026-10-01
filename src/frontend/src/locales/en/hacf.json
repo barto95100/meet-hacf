@@ -54,5 +54,22 @@
   "supervision": {
     "label": "Supervision",
     "newTab": "new tab"
+  },
+  "diagnostics": {
+    "label": "Diagnostics",
+    "open": "Open network diagnostics",
+    "close": "Close",
+    "title": "Network diagnostics",
+    "empty": "No other participant yet.",
+    "loss": "Loss",
+    "jitter": "Jitter",
+    "note": "Quality of the streams you already receive in the call. Restricted to the allowed group.",
+    "quality": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "poor": "Poor",
+      "lost": "Lost",
+      "unknown": "—"
+    }
   }
 }

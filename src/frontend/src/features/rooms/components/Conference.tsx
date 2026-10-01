@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { HacfDiagnosticsPanel } from '@/features/hacf/components/HacfDiagnosticsPanel'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -298,6 +299,7 @@ export const Conference = ({
         >
           <WatchMediaDeviceErrors />
           <VideoConference />
+          <HacfDiagnosticsPanel />
           {!isMobile && <InviteDialog mode={mode} />}
           <PictureInPictureConference />
           <MeetDevtools />
