@@ -7,6 +7,8 @@
   "header": {
     "brand": "Home Assistant Communauté Francophone – HACF Meet, home",
     "accountMenu": "Account menu",
+    "myRooms": "My rooms",
+    "allRooms": "All rooms",
     "logout": "Log out"
   },
   "join": {
@@ -54,6 +56,30 @@
   "supervision": {
     "label": "Supervision",
     "newTab": "new tab"
+  },
+  "rooms": {
+    "back": "Back to home",
+    "title": "Rooms",
+    "subtitle": "Your meeting rooms: join them, copy their link or delete them.",
+    "loginRequired": "Log in to see your rooms.",
+    "loading": "Loading…",
+    "unavailable": "The room list is not available right now.",
+    "mineTitle": "My rooms",
+    "mineEmpty": "You don't have any room yet. Create a link from the home page.",
+    "allTitle": "All rooms",
+    "allEmpty": "No room registered.",
+    "roomCount_one": "{{count}} room",
+    "roomCount_other": "{{count}} rooms",
+    "unknownOwner": "Unknown owner",
+    "live_one": "{{count}} online",
+    "live_other": "{{count}} online",
+    "created": "created on {{date}}",
+    "join": "Join",
+    "copy": "Copy link",
+    "copied": "Copied",
+    "delete": "Delete",
+    "confirmDelete": "Confirm deletion",
+    "cancel": "Cancel"
   },
   "diagnostics": {
     "label": "Diagnostics",
