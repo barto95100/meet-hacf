@@ -226,7 +226,7 @@ DB_PASSWORD=<mot de passe de l'utilisateur en lecture seule>
 
 Pour la vue des salles, créer un utilisateur PostgreSQL **en lecture seule** (le service
 ne fait que des `SELECT`) ; voir le README du service pour le SQL
-(`CREATE USER meet_ro … GRANT SELECT ON meet_room, meet_resource_access, meet_user`).
+(`CREATE USER meet_ro … GRANT SELECT ON meet_resource, meet_room, meet_resource_access, meet_user`).
 Sans ces variables, la page « Salles » reste accessible mais indique simplement que la
 liste n'est pas disponible.
 
