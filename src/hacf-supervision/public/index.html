@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Supervision – HACF Meet</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="app.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="halo" aria-hidden="true"></div>
+    <header class="topbar">
+      <a href="/" class="brand">
+        <img
+          src="hacf-banner.webp"
+          width="812"
+          height="132"
+          alt="Home Assistant Communauté Francophone – HACF Meet, accueil"
+        />
+      </a>
+      <span class="tag">Supervision</span>
+    </header>
+
+    <main id="main">
+      <div class="heading" id="heading">
+        <div>
+          <h1>Réunions en cours</h1>
+          <p class="subtitle" id="status" aria-live="polite">Chargement…</p>
+        </div>
+        <button type="button" id="refresh" class="ghost">Actualiser</button>
+      </div>
+
+      <section id="summary" class="summary" aria-label="Résumé" hidden></section>
+      <section id="rooms" class="rooms" aria-label="Salles"></section>
+
+      <section id="message" class="message" hidden>
+        <h2 id="message-title"></h2>
+        <p id="message-body"></p>
+        <a id="message-link" class="button" hidden></a>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Lecture seule · actualisation automatique toutes les 10 secondes
+    </footer>
+  </body>
+</html>

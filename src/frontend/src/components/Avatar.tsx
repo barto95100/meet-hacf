@@ -1,5 +1,6 @@
 import { css, cva, RecipeVariantProps } from '@/styled-system/css'
 import React, { useMemo } from 'react'
+import { HacfAvatarPhoto } from '@/features/hacf/components/HacfAvatarPhoto'
 
 const avatar = cva({
   base: {
@@ -12,6 +13,7 @@ const avatar = cva({
     flexGrow: 0,
     flexShrink: 0,
     overflow: 'hidden',
+    position: 'relative',
   },
   variants: {
     context: {
@@ -85,6 +87,7 @@ export const Avatar = React.memo(
             {initials}
           </text>
         </svg>
+        <HacfAvatarPhoto />
       </div>
     )
   }

@@ -50,5 +50,9 @@
       "rejected": "Le serveur a refusé une ou plusieurs adresses.",
       "failed": "L'envoi a échoué. Réessayez plus tard ou partagez le lien directement."
     }
+  },
+  "supervision": {
+    "label": "Supervision",
+    "newTab": "nouvel onglet"
   }
 }

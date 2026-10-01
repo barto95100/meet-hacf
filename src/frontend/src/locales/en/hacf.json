@@ -50,5 +50,9 @@
       "rejected": "The server rejected one or more addresses.",
       "failed": "Sending failed. Try again later or share the link directly."
     }
+  },
+  "supervision": {
+    "label": "Supervision",
+    "newTab": "new tab"
   }
 }
