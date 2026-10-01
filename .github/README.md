@@ -27,6 +27,7 @@ le reste du frontend sont ceux de la version officielle.
 | ------- | ------------ |
 | `src/frontend/src/routes.ts` | 1 ligne : la route `home` charge `@/features/hacf/routes/HacfHome` au lieu de `@/features/home/routes/Home`. |
 | `src/frontend/src/main.tsx` | 1 ligne ajoutée : `import './features/hacf/styles/theme.css'`. |
+| `src/frontend/src/features/rooms/utils/isRoomValid.ts` | Noms de salle lisibles : en plus des codes `abc-defg-hij`, accepte lettres minuscules, chiffres et tirets (3 à 60 caractères, ex. `atelier-zigbee`), sauf les chemins réservés (`feedback`, `test-connection`, `mentions-legales`, `api`, `admin`…). Les codes tapés sans tirets ou en majuscules restent normalisés (`ABCDEFGHIJ` → `abc-defg-hij`). Le backend accepte déjà n'importe quel nom (il le passe dans `slugify`). |
 | `src/frontend/public/favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`, `android-chrome-192x192.png`, `android-chrome-512x512.png` | Fichiers remplacés (mêmes noms ; `index.html` et `site.webmanifest` inchangés) : icônes au logo HACF, découpées dans `docs/design/hacf-bannière-transparent.png`. Disque blanc derrière le logo en 16/32/48 px (lisible sur onglets clairs et sombres), fond `#0b0b10` pour l'icône Apple (pas de transparence sur iOS). |
 
 **Fichiers ajoutés** (aucun conflit possible) :
@@ -37,7 +38,9 @@ le reste du frontend sont ceux de la version officielle.
 | `src/frontend/src/features/hacf/routes/HacfHome.tsx` | Page d'accueil (maquette « Accueil HACF Visio », section 2) : halo dégradé, titre, capsule de code, connexion ou actions de création. |
 | `src/frontend/src/features/hacf/components/HacfHeader.tsx` | En-tête de l'accueil : bannière HACF, puis selon l'état Meet avatar + nom + « Déconnexion » (≥ 640 px) ou avatar ouvrant un menu du compte (< 640 px), et bouton Paramètres (langue…). |
 | `src/frontend/src/features/hacf/components/HacfJoinForm.tsx` | Capsule « Code de la salle » : même validation (`isRoomValid`) et même navigation que `JoinMeetingDialog`. |
-| `src/frontend/src/features/hacf/components/HacfCreateActions.tsx` | « Réunion instantanée » / « Créer un lien de réunion » : mêmes appels que `CreateMeetingMenu` (`useCreateRoom`, `generateRoomId`), copie via `useCopyRoomToClipboard`. |
+| `src/frontend/src/features/hacf/components/HacfCreateActions.tsx` | « Réunion instantanée » (code aléatoire) / « Créer un lien de réunion » : mêmes appels que `CreateMeetingMenu` (`useCreateRoom`, `generateRoomId`), copie via `useCopyRoomToClipboard`. |
+| `src/frontend/src/features/hacf/components/HacfRoomNameForm.tsx` | Étape « Nom de la salle » de « Créer un lien de réunion » : un code aléatoire est proposé, sélectionné, et peut être remplacé par un nom lisible avant la création ; aperçu de l'adresse, erreurs (trop court, réservé, déjà utilisé). |
+| `src/frontend/src/features/hacf/components/HacfInviteByEmail.tsx` | « Inviter par e-mail » sous le lien créé : appelle l'endpoint upstream `POST /api/v1.0/rooms/<id>/invite/` (propriétaire / administrateurs de la salle), qui envoie l'invitation via le SMTP du backend (voir plus bas). |
 | `src/frontend/src/features/hacf/styles/buttons.ts`, `theme.ts` | Styles des boutons et couleurs de l'accueil (variables CSS `--hacf-*`). |
 | `src/frontend/src/features/hacf/styles/hacf.css` + `assets/fonts/` | Polices Inter et JetBrains Mono auto-hébergées (SIL OFL 1.1). |
 | `src/frontend/src/features/hacf/assets/images/hacf-banner-light-text.webp` | Bannière HACF (logo + « Home Assistant Communauté Francophone ») en 812 × 132, fond transparent, texte recoloré en clair pour les fonds sombres. Source : `docs/design/hacf-bannière-transparent.png`. |
@@ -84,6 +87,37 @@ a[data-attr='login'] {
 ```
 
 À retirer quand l'OIDC sera configuré.
+
+### Invitations par e-mail (SMTP du backend)
+
+L'envoi est fait par le **backend officiel** : il suffit de configurer le SMTP dans son
+fichier d'environnement, sans reconstruire d'image. Exemple avec OVH (offre MX Plan ;
+Email Pro : `pro1.mail.ovh.net`, Exchange : `exN.mail.ovh.net`, port 587 + TLS) :
+
+```sh
+EMAIL_HOST=ssl0.ovh.net
+EMAIL_PORT=465
+EMAIL_USE_SSL=True            # ou EMAIL_PORT=587 + EMAIL_USE_TLS=True (jamais les deux)
+EMAIL_HOST_USER=meet@hacf.fr
+EMAIL_HOST_PASSWORD=…
+EMAIL_FROM=HACF Meet <meet@hacf.fr>   # doit être la boîte authentifiée (ou un alias)
+EMAIL_BRAND_NAME=HACF Meet
+EMAIL_LOGO_IMG=https://meet.hacf.fr/android-chrome-192x192.png
+EMAIL_DOMAIN=meet.hacf.fr
+EMAIL_APP_BASE_URL=https://meet.hacf.fr
+```
+
+Puis `docker compose up -d --force-recreate backend`. Test d'envoi :
+
+```sh
+docker compose exec backend python manage.py shell -c "from django.conf import settings; from django.core.mail import send_mail; send_mail('Test HACF Meet', 'OK', settings.EMAIL_FROM, ['vous@exemple.fr'])"
+```
+
+Le texte du mail est celui du backend officiel, prévu pour un appel **en cours** (« … vous
+invite à rejoindre un appel vidéo en cours », bouton « REJOINDRE L'APPEL »). Son sujet reste
+en anglais (« Video call in progress: … is waiting for you to connect ») : le backend
+construit le texte avant de le traduire, la traduction française n'est donc jamais trouvée.
+Le modifier demanderait de construire aussi l'image backend.
 
 ## Développer / prévisualiser la page
 
