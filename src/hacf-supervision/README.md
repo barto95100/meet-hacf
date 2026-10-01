@@ -29,7 +29,7 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | Fait-il partie du groupe ? | API Authentik `GET /api/v3/core/users/` (annuaire mis en cache 5 min) |
 | Avatar d'un participant | Même annuaire : identité LiveKit = `sub` OIDC envoyé par Authentik (`uid` en mode par défaut « hashed user ID » ; pk, UUID, username, e-mail et UPN aussi reconnus) |
 | Réunions en cours | API LiveKit `ListRooms` / `ListParticipants` |
-| Salles enregistrées | Base PostgreSQL de Meet, en lecture seule (tables `meet_room`, `meet_resource_access`, `meet_user`) |
+| Salles enregistrées | Base PostgreSQL de Meet, en lecture seule (tables `meet_resource`, `meet_room`, `meet_resource_access`, `meet_user`) |
 | Salle en ligne ? | Croisement du *slug* avec les réunions LiveKit en cours |
 
 ## API
@@ -75,10 +75,10 @@ Créez un utilisateur PostgreSQL dédié, **sans aucun droit d'écriture** :
 CREATE USER meet_ro WITH PASSWORD 'un-mot-de-passe-solide';
 GRANT CONNECT ON DATABASE meet TO meet_ro;
 GRANT USAGE ON SCHEMA public TO meet_ro;
-GRANT SELECT ON meet_room, meet_resource_access, meet_user TO meet_ro;
+GRANT SELECT ON meet_resource, meet_room, meet_resource_access, meet_user TO meet_ro;
 ```
 
-Le service n'exécute que des `SELECT` ; ces trois tables suffisent. Si une mise à
+Le service n'exécute que des `SELECT` ; ces quatre tables suffisent. Si une mise à
 jour de Meet renomme ces tables, seule la requête de `src/db.js` est à adapter.
 
 ## Développement

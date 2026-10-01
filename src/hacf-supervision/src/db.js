@@ -10,9 +10,13 @@ import { config } from './config.js'
  * with a dedicated read-only PostgreSQL user (see README.md). Nothing here
  * writes. Disabled when DB_HOST / DATABASE_URL is not configured.
  *
- * Coupling note: this depends on Meet's table layout (meet_room,
- * meet_resource_access, meet_user). If an upstream migration renames those,
- * this query must follow — it is isolated here on purpose.
+ * Coupling note: this depends on Meet's table layout. Meet uses Django
+ * multi-table inheritance: Room extends Resource, so meet_room has no id/
+ * created_at of its own — its primary key is resource_id, pointing at
+ * meet_resource (which carries id and created_at). A room's identity, as used
+ * by meet_resource_access.resource_id, is that resource id. If an upstream
+ * migration changes this layout, only this query must follow — it is isolated
+ * here on purpose.
  */
 
 let pool = null
@@ -48,25 +52,26 @@ const getPool = () => {
 // result is stable. A room without an owner row still shows up (LEFT JOIN).
 const ROOMS_SQL = `
   SELECT
-    r.id::text            AS id,
+    res.id::text          AS id,
     r.slug                AS slug,
     r.name                AS name,
     r.access_level        AS access_level,
-    r.created_at          AS created_at,
+    res.created_at        AS created_at,
     r.last_started_at     AS last_started_at,
     o.user_id::text       AS owner_id,
     u.email               AS owner_email,
     u.full_name           AS owner_name
   FROM meet_room r
+  JOIN meet_resource res ON res.id = r.resource_id
   LEFT JOIN LATERAL (
     SELECT a.user_id
     FROM meet_resource_access a
-    WHERE a.resource_id = r.id AND a.role = 'owner'
+    WHERE a.resource_id = r.resource_id AND a.role = 'owner'
     ORDER BY a.created_at ASC NULLS LAST
     LIMIT 1
   ) o ON TRUE
   LEFT JOIN meet_user u ON u.id = o.user_id
-  ORDER BY r.last_started_at DESC NULLS LAST, r.created_at DESC
+  ORDER BY r.last_started_at DESC NULLS LAST, res.created_at DESC
   LIMIT 2000
 `
 
