@@ -5,6 +5,10 @@ Petit service HACF, à côté de Meet (le backend Meet n'est pas modifié) :
 - **Supervision** (`/supervision/`) : réunions en cours sur LiveKit, participants,
   micro / caméra / partage d'écran, en **lecture seule**. Réservée aux utilisateurs
   **connectés à Meet** et membres du groupe Authentik **`ALLOWED_GROUP`** (`Infra`).
+- **Santé du serveur** : métriques LiveKit (qualité moyenne, débit, pertes, latence,
+  mémoire) lues sur son endpoint Prometheus, résumées sur la page et en graphe sur la
+  dernière heure. En mémoire, sans Prometheus ni Grafana en plus. Masqué si
+  `LIVEKIT_PROMETHEUS_URL` n'est pas défini.
 - **Avatars** (`/supervision/api/avatar/…`) : la photo Authentik des membres, affichée
   par Meet à la place des initiales (en-tête de l'accueil, vignettes en visio). Visible
   par les utilisateurs connectés uniquement ; les initiales générées par Authentik sont
@@ -28,6 +32,7 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | `GET /supervision/api/health` | public | `{"ok":true}` |
 | `GET /supervision/api/access` | — | 200 autorisé, 401 non connecté, 403 hors groupe |
 | `GET /supervision/api/rooms` | connecté + groupe | réunions et participants |
+| `GET /supervision/api/metrics` | connecté + groupe | santé du serveur LiveKit (ou `{available:false}`) |
 | `GET /supervision/api/avatar/me` | connecté | photo de l'utilisateur, 404 sans photo |
 | `GET /supervision/api/avatar/<identité>` | connecté | photo d'un participant, 404 sans photo |
 | `GET /supervision/` | (la page vérifie l'accès) | page de supervision |
@@ -44,6 +49,7 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | `ALLOWED_GROUP` | `Infra` | Groupe autorisé à voir la supervision |
 | `LIVEKIT_URL` | `http://livekit:7880` | API LiveKit (adresse interne) |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | Mêmes valeurs que pour le backend Meet |
+| `LIVEKIT_PROMETHEUS_URL` | `http://livekit:6789/metrics` | Endpoint Prometheus de LiveKit (optionnel ; sinon pas de section serveur) |
 | `PORT` | `8090` | Port d'écoute |
 | `SESSION_CACHE_SECONDS` / `DIRECTORY_CACHE_SECONDS` / `AVATAR_CACHE_SECONDS` | `60` / `300` / `600` | Durées de cache |
 

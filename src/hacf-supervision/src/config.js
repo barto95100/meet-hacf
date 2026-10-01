@@ -30,6 +30,11 @@ export const config = {
   livekitUrl: trimSlash(required('LIVEKIT_URL')),
   livekitApiKey: required('LIVEKIT_API_KEY'),
   livekitApiSecret: required('LIVEKIT_API_SECRET'),
+  // Optional: LiveKit Prometheus endpoint (prometheus_port). When unset, the
+  // server-health section is simply hidden.
+  livekitPrometheusUrl: process.env.LIVEKIT_PROMETHEUS_URL
+    ? trimSlash(process.env.LIVEKIT_PROMETHEUS_URL)
+    : '',
 
   // Cache durations, in seconds.
   sessionCacheSeconds: Number(process.env.SESSION_CACHE_SECONDS || 60),
