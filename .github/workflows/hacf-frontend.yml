@@ -34,7 +34,10 @@ env:
   IMAGE_NAME: meet-frontend
   # Same values as the official docker-hub.yml workflow (frontend-generic job, tag build).
   DOCKER_USER: 1001:127
-  BUILD_PLATFORMS: linux/amd64,linux/arm64
+  # x86/amd64 only: the HACF server is amd64, so arm64 (built under slow QEMU
+  # emulation) is not worth the build time. Add linux/arm64 back if you ever
+  # deploy on ARM hardware (Apple Silicon, Raspberry Pi, Graviton, Ampere…).
+  BUILD_PLATFORMS: linux/amd64
   # Only addition to the official build: the instance name shown in the UI (tab
   # title, room title, device permission messages). The official build leaves it
   # empty, which also overrides the "LaSuite Meet" value of .env.production.
