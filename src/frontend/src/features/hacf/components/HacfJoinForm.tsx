@@ -3,13 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { css, cx } from '@/styled-system/css'
 import { navigateTo } from '@/navigation/navigateTo'
 import { isRoomValid } from '@/features/rooms'
+import { normalizeRoomId } from '@/features/rooms/utils/isRoomValid'
 import { gradientButton, lightButton } from '../styles/buttons'
 
 type JoinError = 'empty' | 'invalid' | null
 
 /**
- * Room code capsule. Same validation and navigation as the upstream
- * JoinMeetingDialog, only the interface differs.
+ * Room code / name capsule. Same validation and navigation as the upstream
+ * JoinMeetingDialog (with HACF readable room names), only the interface
+ * differs. Case and missing hyphens are normalized like the room route does.
  */
 export const HacfJoinForm = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
   const { t } = useTranslation('hacf', { keyPrefix: 'join' })
@@ -22,8 +24,10 @@ export const HacfJoinForm = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
     event.preventDefault()
     const trimmed = value.trim()
     if (!trimmed) return setError('empty')
-    if (!isRoomValid(trimmed)) return setError('invalid')
-    const roomId = trimmed.replace(`${window.location.origin}/`, '')
+    const roomId = normalizeRoomId(
+      trimmed.replace(`${window.location.origin}/`, '')
+    )
+    if (!isRoomValid(roomId)) return setError('invalid')
     navigateTo('room', roomId)
   }
 
@@ -107,30 +111,7 @@ export const HacfJoinForm = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
               color: 'var(--hacf-error)',
             })}
           >
-            {error === 'empty' ? (
-              t('emptyError')
-            ) : (
-              <>
-                {tHome('joinInputError')}{' '}
-                <span
-                  className={css({
-                    fontFamily: 'var(--hacf-font-mono)',
-                    whiteSpace: 'nowrap',
-                  })}
-                >
-                  {window.location.host}/uio-azer-jkl
-                </span>{' '}
-                ·{' '}
-                <span
-                  className={css({
-                    fontFamily: 'var(--hacf-font-mono)',
-                    whiteSpace: 'nowrap',
-                  })}
-                >
-                  uio-azer-jkl
-                </span>
-              </>
-            )}
+            {error === 'empty' ? t('emptyError') : t('invalidError')}
           </p>
         )}
       </div>
