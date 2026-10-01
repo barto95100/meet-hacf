@@ -28,6 +28,7 @@ le reste du frontend sont ceux de la version officielle.
 | `src/frontend/src/routes.ts` | 2 lignes : la route `home` charge `@/features/hacf/routes/HacfHome` ; la route `room` charge `@/features/hacf/routes/HacfRoom` (salle d'origine + bouton « Supervision » pendant la visio). |
 | `src/frontend/src/main.tsx` | 1 ligne ajoutée : `import './features/hacf/styles/theme.css'`. |
 | `src/frontend/src/components/Avatar.tsx` | 3 lignes : `position: relative` et `<HacfAvatarPhoto />`, qui pose la photo Authentik du participant (contexte LiveKit) sur les initiales. |
+| `src/frontend/src/features/rooms/components/Conference.tsx` | 2 lignes : import et `<HacfDiagnosticsPanel />` dans `<LiveKitRoom>`, pour le panneau de diagnostic réseau en visio (groupe autorisé). |
 | `src/frontend/src/features/rooms/utils/isRoomValid.ts` | Noms de salle lisibles : en plus des codes `abc-defg-hij`, accepte lettres minuscules, chiffres et tirets (3 à 60 caractères, ex. `atelier-zigbee`), sauf les chemins réservés (`feedback`, `test-connection`, `mentions-legales`, `api`, `admin`, `supervision`…). Les codes tapés sans tirets ou en majuscules restent normalisés (`ABCDEFGHIJ` → `abc-defg-hij`). Le backend accepte déjà n'importe quel nom (il le passe dans `slugify`). |
 | `src/frontend/public/favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`, `android-chrome-192x192.png`, `android-chrome-512x512.png` | Fichiers remplacés (mêmes noms ; `index.html` et `site.webmanifest` inchangés) : icônes au logo HACF, découpées dans `docs/design/hacf-bannière-transparent.png`. Disque blanc derrière le logo en 16/32/48 px (lisible sur onglets clairs et sombres), fond `#0b0b10` pour l'icône Apple (pas de transparence sur iOS). |
 
@@ -46,6 +47,7 @@ le reste du frontend sont ceux de la version officielle.
 | `src/frontend/src/features/hacf/styles/hacf.css` + `assets/fonts/` | Polices Inter et JetBrains Mono auto-hébergées (SIL OFL 1.1). |
 | `src/frontend/src/features/hacf/assets/images/hacf-banner-light-text.webp` | Bannière HACF (logo + « Home Assistant Communauté Francophone ») en 812 × 132, fond transparent, texte recoloré en clair pour les fonds sombres. Source : `docs/design/hacf-bannière-transparent.png`. |
 | `src/frontend/public/licenses/` | Textes de licence livrés dans l'image (`/licenses/`) : `meet-MIT.txt` (copie de `LICENSE.md`, exigée par la licence MIT), `inter-OFL.txt`, `jetbrains-mono-OFL.txt`. À recopier si `LICENSE.md` change upstream. |
+| `src/frontend/src/features/hacf/components/HacfDiagnosticsPanel.tsx` | Panneau de diagnostic réseau en visio, réservé au groupe autorisé : qualité, pertes, gigue, résolution, images/s et débit **par participant**, lus sur les flux que le navigateur reçoit déjà (aucun observateur caché, aucun flux supplémentaire). |
 | `src/frontend/src/features/hacf/api/supervision.ts`, `components/HacfAvatarPhoto.tsx`, `components/HacfConferenceSupervision.tsx`, `routes/HacfRoom.tsx` | Intégration du service de supervision : accès (bouton « Supervision » à l'accueil et en visio, pour le groupe Authentik autorisé) et avatars Authentik. |
 | `src/hacf-supervision/` | **Service de supervision** (Node.js, voir son README) : page `/supervision/`, réunions en cours via l'API LiveKit, contrôle d'accès Meet + groupe Authentik, avatars Authentik. Image `ghcr.io/barto95100/meet-supervision`. |
 | `.github/workflows/hacf-supervision.yml` | Construit l'image du service de supervision quand son code change. |
@@ -239,7 +241,8 @@ Ce port reste interne (jamais exposé par le reverse proxy) ; seul le service
 
 Vérification : `curl -s https://meet.hacf.fr/supervision/api/health` → `{"ok":true}`.
 Les membres du groupe `Infra` voient alors « Supervision » dans l'en-tête de l'accueil
-et en haut à gauche pendant une visio ; les photos Authentik remplacent les initiales
+et en haut à gauche pendant une visio (« Supervision » et « Diagnostic » réseau par
+participant) ; les photos Authentik remplacent les initiales
 (pour les utilisateurs connectés). Sans ce service, Meet fonctionne normalement :
 pas de bouton, initiales partout.
 
