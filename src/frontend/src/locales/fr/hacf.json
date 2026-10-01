@@ -7,6 +7,8 @@
   "header": {
     "brand": "Home Assistant Communauté Francophone – HACF Meet, accueil",
     "accountMenu": "Menu du compte",
+    "myRooms": "Mes salles",
+    "allRooms": "Toutes les salles",
     "logout": "Déconnexion"
   },
   "join": {
@@ -54,6 +56,30 @@
   "supervision": {
     "label": "Supervision",
     "newTab": "nouvel onglet"
+  },
+  "rooms": {
+    "back": "Retour à l'accueil",
+    "title": "Salles",
+    "subtitle": "Vos salles de réunion : rejoignez-les, copiez leur lien ou supprimez-les.",
+    "loginRequired": "Connectez-vous pour voir vos salles.",
+    "loading": "Chargement…",
+    "unavailable": "La liste des salles n'est pas disponible pour le moment.",
+    "mineTitle": "Mes salles",
+    "mineEmpty": "Vous n'avez pas encore de salle. Créez un lien depuis l'accueil.",
+    "allTitle": "Toutes les salles",
+    "allEmpty": "Aucune salle enregistrée.",
+    "roomCount_one": "{{count}} salle",
+    "roomCount_other": "{{count}} salles",
+    "unknownOwner": "Propriétaire inconnu",
+    "live_one": "{{count}} en ligne",
+    "live_other": "{{count}} en ligne",
+    "created": "créée le {{date}}",
+    "join": "Rejoindre",
+    "copy": "Copier le lien",
+    "copied": "Copié",
+    "delete": "Supprimer",
+    "confirmDelete": "Confirmer la suppression",
+    "cancel": "Annuler"
   },
   "diagnostics": {
     "label": "Diagnostic",
