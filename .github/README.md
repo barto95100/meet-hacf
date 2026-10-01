@@ -49,6 +49,7 @@ le reste du frontend sont ceux de la version officielle.
 | `src/frontend/public/licenses/` | Textes de licence livrés dans l'image (`/licenses/`) : `meet-MIT.txt` (copie de `LICENSE.md`, exigée par la licence MIT), `inter-OFL.txt`, `jetbrains-mono-OFL.txt`. À recopier si `LICENSE.md` change upstream. |
 | `src/frontend/src/features/hacf/components/HacfDiagnosticsPanel.tsx` | Panneau de diagnostic réseau en visio, réservé au groupe autorisé : qualité, pertes, gigue, résolution, images/s et débit **par participant**, lus sur les flux que le navigateur reçoit déjà (aucun observateur caché, aucun flux supplémentaire). |
 | `src/frontend/src/features/hacf/api/supervision.ts`, `components/HacfAvatarPhoto.tsx`, `components/HacfConferenceSupervision.tsx`, `routes/HacfRoom.tsx` | Intégration du service de supervision : accès (bouton « Supervision » à l'accueil et en visio, pour le groupe Authentik autorisé) et avatars Authentik. |
+| `src/frontend/src/features/hacf/routes/HacfRooms.tsx`, `api/rooms.ts` | Page `/salles` ouverte depuis le menu de l'avatar : « Mes salles » pour chacun, « Toutes les salles » (regroupées par propriétaire, vue admin) pour le groupe autorisé. Liste lue via le service de supervision ; suppression via l'API Meet (qui vérifie la propriété). |
 | `src/hacf-supervision/` | **Service de supervision** (Node.js, voir son README) : page `/supervision/`, réunions en cours via l'API LiveKit, contrôle d'accès Meet + groupe Authentik, avatars Authentik. Image `ghcr.io/barto95100/meet-supervision`. |
 | `.github/workflows/hacf-supervision.yml` | Construit l'image du service de supervision quand son code change. |
 | `src/frontend/src/locales/{fr,en}/hacf.json` | Textes de l'accueil (namespace i18n `hacf`). Les autres langues retombent sur le français. |
@@ -215,7 +216,19 @@ LIVEKIT_URL=http://livekit:7880
 LIVEKIT_API_KEY=<même valeur que le backend>
 LIVEKIT_API_SECRET=<même valeur que le backend>
 LIVEKIT_PROMETHEUS_URL=http://livekit:6789/metrics   # optionnel (santé serveur)
+
+# Optionnel : vue « Mes salles / Toutes les salles » (lecture seule de la base Meet)
+DB_HOST=postgresql
+DB_NAME=meet
+DB_USER=meet_ro
+DB_PASSWORD=<mot de passe de l'utilisateur en lecture seule>
 ```
+
+Pour la vue des salles, créer un utilisateur PostgreSQL **en lecture seule** (le service
+ne fait que des `SELECT`) ; voir le README du service pour le SQL
+(`CREATE USER meet_ro … GRANT SELECT ON meet_room, meet_resource_access, meet_user`).
+Sans ces variables, la page « Salles » reste accessible mais indique simplement que la
+liste n'est pas disponible.
 
 Pour la section « Serveur LiveKit » (qualité, débit, pertes, mémoire, sur la dernière
 heure, sans Prometheus ni Grafana), activer le port Prometheus de LiveKit dans sa

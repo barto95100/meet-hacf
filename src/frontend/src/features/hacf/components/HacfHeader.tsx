@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'wouter'
+import { Link, useLocation } from 'wouter'
 import {
   Button as RACButton,
   Menu,
@@ -12,7 +12,8 @@ import { css } from '@/styled-system/css'
 import { useUser } from '@/features/auth/api/useUser'
 import { logout } from '@/features/auth/utils/logout'
 import { SettingsButton } from '@/features/settings'
-import { RiDashboard3Line } from '@remixicon/react'
+import { RiDashboard3Line, RiDoorOpenLine } from '@remixicon/react'
+import type { ApiUser } from '@/features/auth/api/ApiUser'
 import {
   avatarUrl,
   supervisionPageUrl,
@@ -149,6 +150,130 @@ const SupervisionLink = () => {
   )
 }
 
+const menuItem = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  height: '44px',
+  paddingX: '14px',
+  borderRadius: '12px',
+  fontSize: '14px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  outline: 'none',
+  '&[data-hovered], &[data-focused]': {
+    backgroundColor: 'rgba(255,255,255,.06)',
+  },
+  '&[data-focus-visible]': {
+    outline: '2px solid #f4f3f7',
+    outlineOffset: '-2px',
+  },
+})
+
+/**
+ * Account menu opened from the avatar (same at every width): the user's rooms
+ * and logout. Members of the allowed group get "All rooms" instead of
+ * "My rooms" — same entry point, wider scope — matching the supervision gate.
+ */
+const AccountMenu = ({
+  user,
+  displayName,
+  size,
+}: {
+  user: ApiUser
+  displayName: string
+  size: 'sm' | 'md'
+}) => {
+  const { t } = useTranslation('hacf', { keyPrefix: 'header' })
+  const [, setLocation] = useLocation()
+  const isAdmin = useSupervisionAccess()
+  const initials = getInitials(user.full_name, user.email)
+
+  return (
+    <MenuTrigger>
+      <RACButton
+        aria-label={t('accountMenu')}
+        className={css({
+          display: 'block',
+          padding: 0,
+          border: 0,
+          background: 'transparent',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          ...focusRing,
+        })}
+      >
+        <Avatar initials={initials} size={size} />
+      </RACButton>
+      <Popover
+        placement="bottom end"
+        offset={10}
+        className={css({
+          minWidth: '220px',
+          maxWidth: 'calc(100vw - 40px)',
+          backgroundColor: '#15151c',
+          border: '1px solid rgba(255,255,255,.12)',
+          borderRadius: '18px',
+          padding: '8px',
+          boxShadow: '0 20px 50px -10px rgba(0,0,0,.7)',
+          color: '#f4f3f7',
+          fontFamily: "'Inter Variable', Inter, system-ui, sans-serif",
+        })}
+      >
+        <div
+          className={css({
+            padding: '12px 14px 10px',
+            marginBottom: '4px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            borderBottom: '1px solid rgba(255,255,255,.08)',
+          })}
+        >
+          <span
+            className={css({
+              fontSize: '15px',
+              fontWeight: 600,
+              lineHeight: 1.3,
+              overflowWrap: 'anywhere',
+            })}
+          >
+            {displayName}
+          </span>
+          {!!user.full_name && (
+            <span
+              className={css({
+                fontSize: '12px',
+                lineHeight: 1.4,
+                color: '#a9a8b3',
+                overflowWrap: 'anywhere',
+              })}
+            >
+              {user.email}
+            </span>
+          )}
+        </div>
+        <Menu
+          aria-label={t('accountMenu')}
+          onAction={(key) => {
+            if (key === 'logout') logout()
+            else if (key === 'rooms') setLocation('/salles')
+          }}
+          className={css({ outline: 'none' })}
+        >
+          <MenuItem id="rooms" className={menuItem}>
+            <RiDoorOpenLine size={17} aria-hidden="true" />
+            {isAdmin ? t('allRooms') : t('myRooms')}
+          </MenuItem>
+          <MenuItem id="logout" className={menuItem}>
+            {t('logout')}
+          </MenuItem>
+        </Menu>
+      </Popover>
+    </MenuTrigger>
+  )
+}
+
 // Upstream settings button (blue icon, light hover): discreet version for the dark header.
 const settingsButtonWrapper = css({
   display: 'flex',
@@ -174,7 +299,6 @@ export const HacfHeader = () => {
   const { user } = useUser()
 
   const displayName = user?.full_name || user?.email || ''
-  const initials = getInitials(user?.full_name, user?.email)
 
   return (
     <header
@@ -219,159 +343,33 @@ export const HacfHeader = () => {
       >
         {!!user && (
           <>
-            {/* ≥ 640px: avatar, name and logout button */}
+            {/* ≥ 640px: name next to the avatar (the avatar opens the menu) */}
             <div
               className={css({
                 display: 'none',
                 sm: { display: 'flex' },
                 alignItems: 'center',
-                gap: '14px',
+                gap: '10px',
               })}
             >
-              <div
+              <span
                 className={css({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                })}
-              >
-                <Avatar initials={initials} size="sm" />
-                <span
-                  className={css({
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '20rem',
-                  })}
-                >
-                  {displayName}
-                </span>
-              </div>
-              <RACButton
-                onPress={() => logout()}
-                className={css({
-                  height: '36px',
-                  paddingX: '14px',
-                  borderRadius: '999px',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,.16)',
-                  color: 'var(--hacf-text-muted)',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 500,
-                  cursor: 'pointer',
-                  transition: 'color 150ms, border-color 150ms',
-                  '&[data-hovered]': {
-                    color: '#fff',
-                    borderColor: 'rgba(255,255,255,.35)',
-                  },
-                  ...focusRing,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '16rem',
                 })}
               >
-                {t('logout')}
-              </RACButton>
+                {displayName}
+              </span>
+              <AccountMenu user={user} displayName={displayName} size="sm" />
             </div>
 
-            {/* < 640px: avatar opening an account menu */}
+            {/* < 640px: avatar only, opening the same account menu */}
             <div className={css({ sm: { display: 'none' } })}>
-              <MenuTrigger>
-                <RACButton
-                  aria-label={t('accountMenu')}
-                  className={css({
-                    display: 'block',
-                    padding: 0,
-                    border: 0,
-                    background: 'transparent',
-                    borderRadius: '50%',
-                    cursor: 'pointer',
-                    ...focusRing,
-                  })}
-                >
-                  <Avatar initials={initials} size="md" />
-                </RACButton>
-                <Popover
-                  placement="bottom end"
-                  offset={10}
-                  className={css({
-                    minWidth: '220px',
-                    maxWidth: 'calc(100vw - 40px)',
-                    backgroundColor: '#15151c',
-                    border: '1px solid rgba(255,255,255,.12)',
-                    borderRadius: '18px',
-                    padding: '8px',
-                    boxShadow: '0 20px 50px -10px rgba(0,0,0,.7)',
-                    color: '#f4f3f7',
-                    fontFamily:
-                      "'Inter Variable', Inter, system-ui, sans-serif",
-                  })}
-                >
-                  <div
-                    className={css({
-                      padding: '12px 14px 10px',
-                      marginBottom: '4px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
-                      borderBottom: '1px solid rgba(255,255,255,.08)',
-                    })}
-                  >
-                    <span
-                      className={css({
-                        fontSize: '15px',
-                        fontWeight: 600,
-                        lineHeight: 1.3,
-                        overflowWrap: 'anywhere',
-                      })}
-                    >
-                      {displayName}
-                    </span>
-                    {!!user.full_name && (
-                      <span
-                        className={css({
-                          fontSize: '12px',
-                          lineHeight: 1.4,
-                          color: '#a9a8b3',
-                          overflowWrap: 'anywhere',
-                        })}
-                      >
-                        {user.email}
-                      </span>
-                    )}
-                  </div>
-                  <Menu
-                    aria-label={t('accountMenu')}
-                    onAction={(key) => {
-                      if (key === 'logout') logout()
-                    }}
-                    className={css({ outline: 'none' })}
-                  >
-                    <MenuItem
-                      id="logout"
-                      className={css({
-                        display: 'flex',
-                        alignItems: 'center',
-                        height: '44px',
-                        paddingX: '14px',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        outline: 'none',
-                        '&[data-hovered], &[data-focused]': {
-                          backgroundColor: 'rgba(255,255,255,.06)',
-                        },
-                        '&[data-focus-visible]': {
-                          outline: '2px solid #f4f3f7',
-                          outlineOffset: '-2px',
-                        },
-                      })}
-                    >
-                      {t('logout')}
-                    </MenuItem>
-                  </Menu>
-                </Popover>
-              </MenuTrigger>
+              <AccountMenu user={user} displayName={displayName} size="md" />
             </div>
           </>
         )}

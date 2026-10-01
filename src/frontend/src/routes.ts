@@ -20,6 +20,7 @@ const AccessibilityRoute = lazy(
   () => import('@/features/legalsTerms/Accessibility')
 )
 const RoomRoute = lazy(() => import('@/features/hacf/routes/HacfRoom'))
+const RoomsRoute = lazy(() => import('@/features/hacf/routes/HacfRooms'))
 const FeedbackRoute = lazy(() => import('@/features/rooms/routes/Feedback'))
 const ConnectionTestRoute = lazy(
   () => import('@/features/diagnostics/routes/ConnectionTest')
@@ -29,6 +30,7 @@ const roomIdRegex = new RegExp(`^[/](?<roomId>${flexibleRoomIdPattern})$`)
 
 export const routes: Record<
   | 'home'
+  | 'rooms'
   | 'room'
   | 'feedback'
   | 'connectionTest'
@@ -51,6 +53,12 @@ export const routes: Record<
     name: 'home',
     path: '/',
     Component: HomeRoute,
+  },
+  // Must come before `room`: /salles would otherwise match the room pattern.
+  rooms: {
+    name: 'rooms',
+    path: '/salles',
+    Component: RoomsRoute,
   },
   room: {
     name: 'room',
