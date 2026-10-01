@@ -40,4 +40,24 @@ export const config = {
   sessionCacheSeconds: Number(process.env.SESSION_CACHE_SECONDS || 60),
   directoryCacheSeconds: Number(process.env.DIRECTORY_CACHE_SECONDS || 300),
   avatarCacheSeconds: Number(process.env.AVATAR_CACHE_SECONDS || 600),
+
+  // Optional read-only access to Meet's PostgreSQL database, used only for the
+  // admin "all rooms" view (the Meet API can't list other users' rooms).
+  // Use a dedicated read-only user (see README.md). When neither DATABASE_URL
+  // nor DB_HOST is set, the admin view is simply disabled.
+  db: dbConfig(),
+}
+
+function dbConfig() {
+  const url = process.env.DATABASE_URL || ''
+  const host = process.env.DB_HOST || ''
+  return {
+    enabled: Boolean(url || host),
+    url,
+    host,
+    port: Number(process.env.DB_PORT || 5432),
+    name: process.env.DB_NAME || 'meet',
+    user: process.env.DB_USER || 'dinum',
+    password: process.env.DB_PASSWORD || '',
+  }
 }

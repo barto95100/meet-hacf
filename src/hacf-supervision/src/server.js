@@ -8,6 +8,7 @@ import { findUserByEmail, findUserByIdentity, isInAllowedGroup } from './authent
 import { getAvatarImage } from './avatars.js'
 import { listRooms } from './livekit.js'
 import { getMetrics, startMetrics } from './metrics.js'
+import { dbEnabled, listAllRooms } from './db.js'
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url))
 const API = `${config.basePath}/api`
@@ -49,6 +50,20 @@ const checkAccess = async (req) => {
   return { status: isInAllowedGroup(entry) ? 200 : 403, meetUser }
 }
 
+// DB rooms enriched with their current LiveKit state (live + participant count,
+// keyed by slug, since the LiveKit room name is the Meet room slug).
+const roomsWithLiveState = async () => {
+  const live = new Map()
+  for (const room of await listRooms()) {
+    live.set(room.name, room.participants.length)
+  }
+  return (await listAllRooms()).map((room) => ({
+    ...room,
+    live: live.has(room.slug),
+    participantCount: live.get(room.slug) ?? 0,
+  }))
+}
+
 const routes = {
   async health(req, res) {
     sendJson(res, 200, { ok: true })
@@ -77,6 +92,38 @@ const routes = {
     const { status } = await checkAccess(req)
     if (status !== 200) return sendJson(res, status, { allowed: false })
     sendJson(res, 200, getMetrics())
+  },
+
+  // The user's own rooms, read from Meet's database (the browser-session API
+  // has no "list rooms" endpoint at all). Any logged-in Meet user; a room is
+  // "owned" when its owner access matches the session user id.
+  async myRooms(req, res) {
+    const meetUser = await getMeetUser(req.headers.cookie)
+    if (!meetUser) return sendJson(res, 401, { available: false })
+    if (!dbEnabled()) return sendJson(res, 200, { available: false })
+    const rooms = (await roomsWithLiveState()).filter(
+      (room) => room.owner && room.owner.id === meetUser.id
+    )
+    sendJson(res, 200, {
+      available: true,
+      generatedAt: Date.now(),
+      meetUrl: config.meetPublicUrl || null,
+      rooms,
+    })
+  },
+
+  // Admin view: every room of every user, with its owner. Read straight from
+  // Meet's database (the API can't list other people's rooms). Infra only.
+  async allRooms(req, res) {
+    const { status } = await checkAccess(req)
+    if (status !== 200) return sendJson(res, status, { allowed: false })
+    if (!dbEnabled()) return sendJson(res, 200, { available: false })
+    sendJson(res, 200, {
+      available: true,
+      generatedAt: Date.now(),
+      meetUrl: config.meetPublicUrl || null,
+      rooms: await roomsWithLiveState(),
+    })
   },
 
   // Avatars are visible to any user logged in to Meet (they already see each
@@ -131,6 +178,8 @@ const handle = async (req, res) => {
   if (pathname === `${API}/health`) return routes.health(req, res)
   if (pathname === `${API}/access`) return routes.access(req, res)
   if (pathname === `${API}/rooms`) return routes.rooms(req, res)
+  if (pathname === `${API}/my-rooms`) return routes.myRooms(req, res)
+  if (pathname === `${API}/all-rooms`) return routes.allRooms(req, res)
   if (pathname === `${API}/metrics`) return routes.metrics(req, res)
   const avatarMatch = pathname.match(new RegExp(`^${API}/avatar/([^/]{1,200})$`))
   if (avatarMatch) return routes.avatar(req, res, decodeURIComponent(avatarMatch[1]))

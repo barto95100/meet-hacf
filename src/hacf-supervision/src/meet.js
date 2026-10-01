@@ -8,8 +8,9 @@ const cache = new Map()
 const cacheKey = (cookie) => createHash('sha256').update(cookie).digest('hex')
 
 /**
- * Returns { email, fullName } for the Meet session carried by the browser
- * cookies, or null when nobody is logged in.
+ * Returns { id, email, fullName } for the Meet session carried by the browser
+ * cookies, or null when nobody is logged in. `id` is the Meet user UUID, which
+ * matches meet_user.id / meet_resource_access.user_id in the database.
  */
 export const getMeetUser = async (cookieHeader) => {
   if (!cookieHeader) return null
@@ -28,7 +29,11 @@ export const getMeetUser = async (cookieHeader) => {
   })
   let user = null
   if (status === 200 && data?.email) {
-    user = { email: data.email.toLowerCase(), fullName: data.full_name || '' }
+    user = {
+      id: data.id || null,
+      email: data.email.toLowerCase(),
+      fullName: data.full_name || '',
+    }
   } else if (status !== 401 && status !== 403) {
     throw new Error(`Unexpected Meet response ${status}`)
   }
