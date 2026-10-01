@@ -54,5 +54,22 @@
   "supervision": {
     "label": "Supervision",
     "newTab": "nouvel onglet"
+  },
+  "diagnostics": {
+    "label": "Diagnostic",
+    "open": "Ouvrir le diagnostic réseau",
+    "close": "Fermer",
+    "title": "Diagnostic réseau",
+    "empty": "Aucun autre participant pour le moment.",
+    "loss": "Pertes",
+    "jitter": "Gigue",
+    "note": "Qualité des flux que vous recevez déjà dans l'appel. Réservé au groupe autorisé.",
+    "quality": {
+      "excellent": "Excellente",
+      "good": "Bonne",
+      "poor": "Médiocre",
+      "lost": "Perdue",
+      "unknown": "—"
+    }
   }
 }
