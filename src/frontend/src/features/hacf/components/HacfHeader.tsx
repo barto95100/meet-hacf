@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'wouter'
 import {
@@ -11,6 +12,12 @@ import { css } from '@/styled-system/css'
 import { useUser } from '@/features/auth/api/useUser'
 import { logout } from '@/features/auth/utils/logout'
 import { SettingsButton } from '@/features/settings'
+import { RiDashboard3Line } from '@remixicon/react'
+import {
+  avatarUrl,
+  supervisionPageUrl,
+  useSupervisionAccess,
+} from '../api/supervision'
 import hacfBanner from '../assets/images/hacf-banner-light-text.webp'
 
 const getInitials = (fullName?: string, email?: string) => {
@@ -55,13 +62,92 @@ const Avatar = ({
         justifyContent: 'center',
         color: 'var(--hacf-text)',
         fontWeight: 600,
+        position: 'relative',
+        overflow: 'hidden',
       })}
       style={{ fontSize: size === 'sm' ? '12px' : '13px' }}
     >
       {initials}
+      <MyPhoto />
     </span>
   </span>
 )
+
+/** The logged-in user's Authentik avatar, over the initials when there is one. */
+const MyPhoto = () => {
+  const [status, setStatus] = useState<'loading' | 'ok' | 'none'>('loading')
+  if (status === 'none') return null
+  return (
+    <img
+      src={avatarUrl('me')}
+      alt=""
+      onLoad={() => setStatus('ok')}
+      onError={() => setStatus('none')}
+      className={css({
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        backgroundColor: 'var(--hacf-surface)',
+      })}
+      style={{ visibility: status === 'ok' ? 'visible' : 'hidden' }}
+    />
+  )
+}
+
+/** Link to the supervision page, for members of the allowed Authentik group. */
+const SupervisionLink = () => {
+  const { t } = useTranslation('hacf', { keyPrefix: 'supervision' })
+  if (!useSupervisionAccess()) return null
+  return (
+    <a
+      href={supervisionPageUrl()}
+      title={t('label')}
+      className={css({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        height: '36px',
+        paddingX: { base: '9px', sm: '14px' },
+        borderRadius: '999px',
+        border: '1px solid rgba(255,255,255,.16)',
+        color: 'var(--hacf-text-muted)',
+        fontSize: '13px',
+        fontWeight: 500,
+        textDecoration: 'none',
+        transition: 'color 150ms, border-color 150ms',
+        _hover: { color: '#fff', borderColor: 'rgba(255,255,255,.35)' },
+        _focusVisible: {
+          outline: '2px solid var(--hacf-text)',
+          outlineOffset: '2px',
+        },
+      })}
+    >
+      <RiDashboard3Line size={16} aria-hidden="true" />
+      <span
+        className={css({
+          display: 'none',
+          sm: { display: 'inline' },
+        })}
+      >
+        {t('label')}
+      </span>
+      <span
+        className={css({
+          sm: { display: 'none' },
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          clipPath: 'inset(50%)',
+        })}
+      >
+        {t('label')}
+      </span>
+    </a>
+  )
+}
 
 // Upstream settings button (blue icon, light hover): discreet version for the dark header.
 const settingsButtonWrapper = css({
@@ -289,6 +375,7 @@ export const HacfHeader = () => {
             </div>
           </>
         )}
+        <SupervisionLink />
         <span className={settingsButtonWrapper}>
           <SettingsButton />
         </span>
