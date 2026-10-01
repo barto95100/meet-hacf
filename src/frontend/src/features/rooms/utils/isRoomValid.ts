@@ -5,7 +5,7 @@ export const roomIdPattern = '[a-z]{3}-[a-z]{4}-[a-z]{3}'
 // Paths used by other pages or by the server can't be room names.
 const reservedNames =
   'feedback|test-connection|mentions-legales|accessibilite|conditions-utilisation|' +
-  'api|admin|static|assets|media|custom|licenses|sdk|recording'
+  'api|admin|static|assets|media|custom|licenses|sdk|recording|supervision'
 
 export const roomNamePattern = `(?!(?:${reservedNames})$)(?=[a-z0-9-]{3,60}$)[a-z0-9]+(?:-[a-z0-9]+)*`
 
