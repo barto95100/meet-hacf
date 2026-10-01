@@ -7,6 +7,7 @@ import { getMeetUser } from './meet.js'
 import { findUserByEmail, findUserByIdentity, isInAllowedGroup } from './authentik.js'
 import { getAvatarImage } from './avatars.js'
 import { listRooms } from './livekit.js'
+import { getMetrics, startMetrics } from './metrics.js'
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url))
 const API = `${config.basePath}/api`
@@ -72,6 +73,12 @@ const routes = {
     })
   },
 
+  async metrics(req, res) {
+    const { status } = await checkAccess(req)
+    if (status !== 200) return sendJson(res, status, { allowed: false })
+    sendJson(res, 200, getMetrics())
+  },
+
   // Avatars are visible to any user logged in to Meet (they already see each
   // other in meetings), never to anonymous visitors.
   async avatar(req, res, identity) {
@@ -124,6 +131,7 @@ const handle = async (req, res) => {
   if (pathname === `${API}/health`) return routes.health(req, res)
   if (pathname === `${API}/access`) return routes.access(req, res)
   if (pathname === `${API}/rooms`) return routes.rooms(req, res)
+  if (pathname === `${API}/metrics`) return routes.metrics(req, res)
   const avatarMatch = pathname.match(new RegExp(`^${API}/avatar/([^/]{1,200})$`))
   if (avatarMatch) return routes.avatar(req, res, decodeURIComponent(avatarMatch[1]))
 
@@ -144,6 +152,7 @@ http
       else res.end()
     })
   })
+  .on('listening', () => startMetrics())
   .listen(config.port, () => {
     console.log(
       `HACF supervision listening on :${config.port}${config.basePath} (group "${config.allowedGroup}")`
