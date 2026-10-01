@@ -10,8 +10,9 @@
     "logout": "Déconnexion"
   },
   "join": {
-    "placeholder": "Code de la salle : abc-defg-hij",
-    "emptyError": "Saisissez le code de salle reçu dans votre invitation."
+    "placeholder": "Code ou nom de la salle",
+    "emptyError": "Saisissez le code de salle reçu dans votre invitation.",
+    "invalidError": "Saisissez un lien, un code (abc-defg-hij) ou un nom de salle : lettres, chiffres et tirets."
   },
   "create": {
     "instant": "Réunion instantanée",
@@ -19,5 +20,35 @@
     "copy": "Copier",
     "copied": "Copié",
     "shareHint": "Partagez ce lien : vos invités rejoignent directement, sans compte."
+  },
+  "roomName": {
+    "label": "Nom de la salle",
+    "submit": "Créer le lien",
+    "cancel": "Annuler",
+    "hint": "Suggestion aléatoire, modifiable : lettres, chiffres et tirets (ex. atelier-zigbee).",
+    "preview": "Adresse : {{url}}",
+    "errors": {
+      "tooShort": "Le nom doit faire au moins 3 caractères.",
+      "tooLong": "Le nom doit faire au plus 60 caractères.",
+      "codeLike": "Un nom de 10 caractères sans tiret ressemble à un code de salle : ajoutez un tiret.",
+      "unavailable": "Ce nom est réservé, choisissez-en un autre.",
+      "taken": "Ce nom est déjà utilisé, choisissez-en un autre.",
+      "failed": "La création de la salle a échoué. Réessayez."
+    }
+  },
+  "invite": {
+    "label": "Inviter par e-mail",
+    "placeholder": "prenom@exemple.fr, autre@exemple.fr",
+    "submit": "Envoyer",
+    "sending": "Envoi…",
+    "hint": "Séparez les adresses par une virgule ou un espace. Chaque invité reçoit le lien de la salle, sans voir les autres adresses.",
+    "sent_one": "Invitation envoyée à {{count}} adresse.",
+    "sent_other": "Invitations envoyées à {{count}} adresses.",
+    "errors": {
+      "empty": "Saisissez au moins une adresse e-mail.",
+      "invalid": "Adresse(s) invalide(s) : {{emails}}",
+      "rejected": "Le serveur a refusé une ou plusieurs adresses.",
+      "failed": "L'envoi a échoué. Réessayez plus tard ou partagez le lien directement."
+    }
   }
 }

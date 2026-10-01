@@ -10,8 +10,9 @@
     "logout": "Log out"
   },
   "join": {
-    "placeholder": "Room code: abc-defg-hij",
-    "emptyError": "Enter the room code from your invitation."
+    "placeholder": "Room code or name",
+    "emptyError": "Enter the room code from your invitation.",
+    "invalidError": "Enter a link, a code (abc-defg-hij) or a room name: letters, digits and hyphens."
   },
   "create": {
     "instant": "Instant meeting",
@@ -19,5 +20,35 @@
     "copy": "Copy",
     "copied": "Copied",
     "shareHint": "Share this link: your guests join directly, no account needed."
+  },
+  "roomName": {
+    "label": "Room name",
+    "submit": "Create link",
+    "cancel": "Cancel",
+    "hint": "Random suggestion, editable: letters, digits and hyphens (e.g. atelier-zigbee).",
+    "preview": "Address: {{url}}",
+    "errors": {
+      "tooShort": "The name must be at least 3 characters long.",
+      "tooLong": "The name must be at most 60 characters long.",
+      "codeLike": "A 10-character name without a hyphen looks like a room code: add a hyphen.",
+      "unavailable": "This name is reserved, choose another one.",
+      "taken": "This name is already used, choose another one.",
+      "failed": "The room could not be created. Try again."
+    }
+  },
+  "invite": {
+    "label": "Invite by email",
+    "placeholder": "name@example.com, other@example.com",
+    "submit": "Send",
+    "sending": "Sending…",
+    "hint": "Separate addresses with a comma or a space. Each guest receives the room link without seeing the other addresses.",
+    "sent_one": "Invitation sent to {{count}} address.",
+    "sent_other": "Invitations sent to {{count}} addresses.",
+    "errors": {
+      "empty": "Enter at least one email address.",
+      "invalid": "Invalid address(es): {{emails}}",
+      "rejected": "The server rejected one or more addresses.",
+      "failed": "Sending failed. Try again later or share the link directly."
+    }
   }
 }
