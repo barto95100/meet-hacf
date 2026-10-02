@@ -16,8 +16,9 @@ Petit service HACF, à côté de Meet (le backend Meet n'est pas modifié) :
 - **Salles** (`/supervision/api/my-rooms`, `/supervision/api/all-rooms`) : la liste des
   salles enregistrées, lue **en lecture seule** dans la base PostgreSQL de Meet (l'API de
   Meet ne sait pas lister les salles). Chaque utilisateur connecté voit **ses** salles ;
-  les membres du groupe `ALLOWED_GROUP` voient **toutes** les salles, regroupées par
-  propriétaire (vue admin). Désactivé si aucune base n'est configurée.
+  les membres du groupe `ALLOWED_GROUP` voient **en plus** les salles des **autres**
+  utilisateurs, regroupées par propriétaire (vue admin). Désactivé si aucune base n'est
+  configurée.
 
 Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le navigateur.
 

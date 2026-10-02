@@ -314,6 +314,9 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
   const groups = useMemo(() => {
     const byOwner = new Map<string, { owner: RoomOwner | null; rooms: ManagedRoom[] }>()
     for (const room of data?.rooms ?? []) {
+      // The viewer's own rooms already appear under "My rooms"; this admin
+      // view is about the other users' rooms.
+      if (myUserId && room.owner?.id === myUserId) continue
       const key = room.owner?.id || '—'
       if (!byOwner.has(key)) byOwner.set(key, { owner: room.owner, rooms: [] })
       byOwner.get(key)!.rooms.push(room)
@@ -327,7 +330,7 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
         b.owner?.name || b.owner?.email || ''
       )
     })
-  }, [data])
+  }, [data, myUserId])
 
   if (!data?.available) return null
 
@@ -380,7 +383,7 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
                     key={room.id}
                     room={room}
                     meetUrl={data.meetUrl}
-                    canManage={!!myUserId && room.owner?.id === myUserId}
+                    canManage={false}
                   />
                 ))}
               </ul>
