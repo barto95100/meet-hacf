@@ -20,6 +20,7 @@ import {
   ManagedRoom,
   RoomOwner,
   roomUrl,
+  useAdminDeleteRoom,
   useAllRooms,
   useDeleteRoom,
   useMyRooms,
@@ -134,15 +135,20 @@ const RoomCard = ({
   room,
   meetUrl,
   canManage,
+  admin = false,
 }: {
   room: ManagedRoom
   meetUrl: string | null
   canManage: boolean
+  /** Admin view: delete another user's room via the supervision service. */
+  admin?: boolean
 }) => {
   const { t } = useTranslation('hacf', { keyPrefix: 'rooms' })
   const [copied, setCopied] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const deleteRoom = useDeleteRoom()
+  const ownerDelete = useDeleteRoom()
+  const adminDelete = useAdminDeleteRoom()
+  const deleteRoom = admin ? adminDelete : ownerDelete
   const url = roomUrl(meetUrl, room.slug)
 
   const copy = async () => {
@@ -383,7 +389,8 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
                     key={room.id}
                     room={room}
                     meetUrl={data.meetUrl}
-                    canManage={false}
+                    canManage={data.canDelete}
+                    admin
                   />
                 ))}
               </ul>

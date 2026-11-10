@@ -47,3 +47,17 @@ export const listRooms = async () => {
     (a, b) => b.participants.length - a.participants.length || a.createdAt - b.createdAt
   )
 }
+
+/**
+ * Close a live LiveKit room, disconnecting everyone — the same side effect as
+ * Meet's own room deletion. The LiveKit room name is the Meet room slug. A room
+ * that is not currently live simply does not exist on LiveKit; that is not an
+ * error, so it is swallowed.
+ */
+export const closeRoom = async (slug) => {
+  try {
+    await client.deleteRoom(slug)
+  } catch {
+    /* room not live / already gone: nothing to close */
+  }
+}

@@ -19,6 +19,14 @@ Petit service HACF, à côté de Meet (le backend Meet n'est pas modifié) :
   les membres du groupe `ALLOWED_GROUP` voient **en plus** les salles des **autres**
   utilisateurs, regroupées par propriétaire (vue admin). Désactivé si aucune base n'est
   configurée.
+- **Suppression** (`DELETE /supervision/api/rooms/<slug>`) : réservée au groupe
+  `ALLOWED_GROUP`, elle permet de supprimer depuis la vue admin la salle d'un **autre**
+  utilisateur (l'API de Meet ne laisse supprimer qu'au propriétaire). Elle reproduit
+  **exactement** la suppression de Meet : un *soft-delete* (`deleted_at`, **réversible** ;
+  la ligne, le slug et les enregistrements sont conservés « pour traçabilité ») suivi de
+  la fermeture de la salle LiveKit en cours. **Rien n'est effacé.** Nécessite un second
+  utilisateur PostgreSQL d'écriture, très restreint (voir plus bas) ; désactivée si
+  `DB_WRITE_*` n'est pas configuré.
 
 Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le navigateur.
 
@@ -42,6 +50,7 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | `GET /supervision/api/rooms` | connecté + groupe | réunions et participants |
 | `GET /supervision/api/my-rooms` | connecté | salles de l'utilisateur (ou `{available:false}`) |
 | `GET /supervision/api/all-rooms` | connecté + groupe | toutes les salles avec propriétaire (ou `{available:false}`) |
+| `DELETE /supervision/api/rooms/<slug>` | connecté + groupe | soft-delete d'une salle (en-tête `x-hacf-supervision: 1` requis) |
 | `GET /supervision/api/metrics` | connecté + groupe | santé du serveur LiveKit (ou `{available:false}`) |
 | `GET /supervision/api/avatar/me` | connecté | photo de l'utilisateur, 404 sans photo |
 | `GET /supervision/api/avatar/<identité>` | connecté | photo d'un participant, 404 sans photo |
@@ -65,6 +74,8 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | `DB_HOST` | `postgresql` | Hôte PostgreSQL de Meet (active la vue des salles ; optionnel) |
 | `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `5432` / `meet` / `meet_ro` / — | Connexion PostgreSQL (utilisateur **en lecture seule**) |
 | `DATABASE_URL` | `postgres://meet_ro:…@postgresql:5432/meet` | Alternative à `DB_*` (prioritaire) |
+| `DB_WRITE_USER` / `DB_WRITE_PASSWORD` | `meet_rw` / — | Utilisateur d'écriture pour le soft-delete (même hôte/port/base que `DB_*`) ; active la suppression. Optionnel |
+| `DB_WRITE_URL` | `postgres://meet_rw:…@postgresql:5432/meet` | Alternative à `DB_WRITE_*` (prioritaire) |
 
 ### Base de données (optionnel)
 
@@ -79,8 +90,32 @@ GRANT USAGE ON SCHEMA public TO meet_ro;
 GRANT SELECT ON meet_resource, meet_room, meet_resource_access, meet_user TO meet_ro;
 ```
 
-Le service n'exécute que des `SELECT` ; ces quatre tables suffisent. Si une mise à
-jour de Meet renomme ces tables, seule la requête de `src/db.js` est à adapter.
+Le service n'exécute que des `SELECT` avec cet utilisateur ; ces quatre tables
+suffisent. Si une mise à jour de Meet renomme ces tables, seule la requête de
+`src/db.js` est à adapter.
+
+### Suppression de salle (optionnel)
+
+Pour que la vue admin puisse supprimer la salle d'un autre utilisateur, créez un
+**second** utilisateur d'écriture, volontairement minimal : il ne peut que lire
+`meet_room` et écrire sa **seule** colonne `deleted_at` (le *soft-delete*). Il ne
+peut ni effacer de ligne, ni toucher à une autre table. Laissez `meet_ro` en
+lecture seule.
+
+```sql
+-- À exécuter en tant que superutilisateur, sur la base de Meet.
+CREATE USER meet_rw WITH PASSWORD 'un-autre-mot-de-passe-solide';
+GRANT CONNECT ON DATABASE meet TO meet_rw;
+GRANT USAGE ON SCHEMA public TO meet_rw;
+GRANT SELECT ON meet_room TO meet_rw;             -- retrouver la salle par son slug
+GRANT UPDATE (deleted_at) ON meet_room TO meet_rw; -- soft-delete, rien d'autre
+```
+
+Le service n'exécute avec cet utilisateur qu'un `UPDATE meet_room SET deleted_at = now()
+WHERE slug = … AND deleted_at IS NULL`, exactement comme la suppression de Meet
+(`core.services.room_management.soft_delete`). La salle reste en base (réversible en
+remettant `deleted_at` à `NULL`). La fermeture de la session LiveKit en cours utilise
+les accès LiveKit déjà configurés. Sans `DB_WRITE_*`, la suppression est désactivée.
 
 ## Développement
 

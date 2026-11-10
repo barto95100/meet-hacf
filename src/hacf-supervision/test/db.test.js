@@ -9,7 +9,9 @@ process.env.LIVEKIT_URL ||= 'http://x'
 process.env.LIVEKIT_API_KEY ||= 'x'
 process.env.LIVEKIT_API_SECRET ||= 'x'
 
-const { mapRoomRow } = await import('../src/db.js')
+const { mapRoomRow, dbEnabled, deleteEnabled, softDeleteRoom } = await import(
+  '../src/db.js'
+)
 
 test('mapRoomRow shapes a full row with its owner', () => {
   const room = mapRoomRow({
@@ -59,4 +61,14 @@ test('mapRoomRow falls back to the owner email when the name is missing', () => 
     owner_name: null,
   })
   assert.equal(room.owner.name, 'bob@hacf.fr')
+})
+
+test('the DB and deletion are disabled without DB env vars', () => {
+  // No DB_HOST / DATABASE_URL and no DB_WRITE_* in this test env.
+  assert.equal(dbEnabled(), false)
+  assert.equal(deleteEnabled(), false)
+})
+
+test('softDeleteRoom refuses when no write user is configured', async () => {
+  await assert.rejects(() => softDeleteRoom('any-slug'), /not configured/)
 })

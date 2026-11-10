@@ -59,5 +59,22 @@ function dbConfig() {
     name: process.env.DB_NAME || 'meet',
     user: process.env.DB_USER || 'dinum',
     password: process.env.DB_PASSWORD || '',
+    // Optional write access, used ONLY to soft-delete a room (set deleted_at),
+    // reserved to the allowed group. Deliberately a separate, tightly-scoped
+    // user (see README.md): the read-only user must stay read-only. Disabled
+    // when no write credentials are set, so deletion is simply unavailable.
+    write: writeConfig(host),
+  }
+}
+
+function writeConfig(host) {
+  const url = process.env.DB_WRITE_URL || ''
+  const user = process.env.DB_WRITE_USER || ''
+  const password = process.env.DB_WRITE_PASSWORD || ''
+  return {
+    enabled: Boolean(url || (host && user)),
+    url,
+    user,
+    password,
   }
 }

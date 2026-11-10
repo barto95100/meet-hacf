@@ -36,6 +36,7 @@ export type ManagedRoom = {
 
 type RoomsResponse = {
   available: boolean
+  canDelete?: boolean
   generatedAt?: number
   meetUrl?: string | null
   rooms?: ManagedRoom[]
@@ -43,11 +44,17 @@ type RoomsResponse = {
 
 export type RoomsView = {
   available: boolean
+  canDelete: boolean
   meetUrl: string | null
   rooms: ManagedRoom[]
 }
 
-const EMPTY: RoomsView = { available: false, meetUrl: null, rooms: [] }
+const EMPTY: RoomsView = {
+  available: false,
+  canDelete: false,
+  meetUrl: null,
+  rooms: [],
+}
 
 const fetchRooms = async (path: string): Promise<RoomsView> => {
   const response = await fetch(`${SUPERVISION_PATH}/api/${path}`, {
@@ -58,6 +65,7 @@ const fetchRooms = async (path: string): Promise<RoomsView> => {
   if (!body?.available) return EMPTY
   return {
     available: true,
+    canDelete: body.canDelete ?? false,
     meetUrl: body.meetUrl ?? null,
     rooms: body.rooms ?? [],
   }
@@ -93,6 +101,36 @@ export const useDeleteRoom = () => {
       fetchApi<void>(`rooms/${encodeURIComponent(slug)}/`, {
         method: 'DELETE',
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hacf', 'my-rooms'] })
+      queryClient.invalidateQueries({ queryKey: ['hacf', 'all-rooms'] })
+    },
+  })
+}
+
+/**
+ * Delete another user's room from the admin view, through the supervision
+ * service (the Meet API only lets an owner delete). The service checks the
+ * Infra group and soft-deletes the room, exactly like Meet's own DELETE. The
+ * custom header is required server-side as a CSRF guard.
+ */
+export const useAdminDeleteRoom = () => {
+  const queryClient = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (slug: string) => {
+      const response = await fetch(
+        `${SUPERVISION_PATH}/api/rooms/${encodeURIComponent(slug)}`,
+        {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: { 'x-hacf-supervision': '1' },
+        }
+      )
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean
+      } | null
+      if (!response.ok || !body?.ok) throw new Error('delete_failed')
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hacf', 'my-rooms'] })
       queryClient.invalidateQueries({ queryKey: ['hacf', 'all-rooms'] })
