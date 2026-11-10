@@ -6,9 +6,9 @@ import { config } from './config.js'
 import { getMeetUser } from './meet.js'
 import { findUserByEmail, findUserByIdentity, isInAllowedGroup } from './authentik.js'
 import { getAvatarImage } from './avatars.js'
-import { listRooms } from './livekit.js'
+import { closeRoom, listRooms } from './livekit.js'
 import { getMetrics, startMetrics } from './metrics.js'
-import { dbEnabled, listAllRooms } from './db.js'
+import { dbEnabled, deleteEnabled, listAllRooms, softDeleteRoom } from './db.js'
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url))
 const API = `${config.basePath}/api`
@@ -120,10 +120,37 @@ const routes = {
     if (!dbEnabled()) return sendJson(res, 200, { available: false })
     sendJson(res, 200, {
       available: true,
+      // Whether this view may soft-delete rooms (write user configured). Lets
+      // the UI hide the delete control when the server cannot honour it.
+      canDelete: deleteEnabled(),
       generatedAt: Date.now(),
       meetUrl: config.meetPublicUrl || null,
       rooms: await roomsWithLiveState(),
     })
+  },
+
+  // Soft-delete a room (admin view). Reserved to the allowed group. Reproduces
+  // Meet's own DELETE: set deleted_at (reversible) and close the live LiveKit
+  // room. Not an erase — the row, slug and recordings are kept.
+  async deleteRoom(req, res, slug) {
+    // CSRF guard: a cross-site page cannot set this custom header without a CORS
+    // preflight, which this same-origin-only service never grants. With the
+    // DELETE method (not a "simple" request) this blocks cross-site deletion.
+    if (req.headers['x-hacf-supervision'] !== '1') {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' })
+    }
+    const { status, meetUser } = await checkAccess(req)
+    if (status !== 200) return sendJson(res, status, { ok: false })
+    if (!deleteEnabled()) return sendJson(res, 200, { ok: false, available: false })
+
+    const resourceId = await softDeleteRoom(slug)
+    if (resourceId) {
+      await closeRoom(slug)
+      console.log(
+        `[rooms] ${meetUser.email} soft-deleted room "${slug}" (resource ${resourceId})`
+      )
+    }
+    sendJson(res, 200, { ok: true, available: true, deleted: Boolean(resourceId) })
   },
 
   // Avatars are visible to any user logged in to Meet (they already see each
@@ -170,10 +197,17 @@ const serveStatic = async (res, path) => {
 }
 
 const handle = async (req, res) => {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return send(res, 405, '', { allow: 'GET, HEAD' })
-  }
   const { pathname } = new URL(req.url, 'http://localhost')
+
+  // The only state-changing route: DELETE a room from the admin view.
+  const deleteMatch = pathname.match(new RegExp(`^${API}/rooms/([^/]{1,200})$`))
+  if (req.method === 'DELETE' && deleteMatch) {
+    return routes.deleteRoom(req, res, decodeURIComponent(deleteMatch[1]))
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return send(res, 405, '', { allow: 'GET, HEAD, DELETE' })
+  }
 
   if (pathname === `${API}/health`) return routes.health(req, res)
   if (pathname === `${API}/access`) return routes.access(req, res)
