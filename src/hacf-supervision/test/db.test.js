@@ -9,9 +9,8 @@ process.env.LIVEKIT_URL ||= 'http://x'
 process.env.LIVEKIT_API_KEY ||= 'x'
 process.env.LIVEKIT_API_SECRET ||= 'x'
 
-const { mapRoomRow, dbEnabled, deleteEnabled, softDeleteRoom } = await import(
-  '../src/db.js'
-)
+const { mapRoomRow, dbEnabled, deleteEnabled, softDeleteRoom, restoreRoom, purgeRoom } =
+  await import('../src/db.js')
 
 test('mapRoomRow shapes a full row with its owner', () => {
   const room = mapRoomRow({
@@ -71,4 +70,17 @@ test('the DB and deletion are disabled without DB env vars', () => {
 
 test('softDeleteRoom refuses when no write user is configured', async () => {
   await assert.rejects(() => softDeleteRoom('any-slug'), /not configured/)
+})
+
+test('restoreRoom refuses when no write user is configured', async () => {
+  await assert.rejects(() => restoreRoom('any-slug'), /not configured/)
+})
+
+test('purgeRoom refuses when no write user is configured', async () => {
+  await assert.rejects(() => purgeRoom('any-slug'), /not configured/)
+})
+
+test('mapRoomRow exposes deletedAt when the row is soft-deleted', () => {
+  const room = mapRoomRow({ id: 'x', slug: 's', deleted_at: '2026-03-01T08:00:00Z' })
+  assert.equal(room.deletedAt, Date.parse('2026-03-01T08:00:00Z'))
 })

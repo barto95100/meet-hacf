@@ -87,7 +87,7 @@ const getWritePool = () => {
 
 // One owner per room: resource_access with role 'owner', earliest first so the
 // result is stable. A room without an owner row still shows up (LEFT JOIN).
-const ROOMS_SQL = `
+const roomsQuery = (filter, order) => `
   SELECT
     res.id::text          AS id,
     r.slug                AS slug,
@@ -95,6 +95,7 @@ const ROOMS_SQL = `
     r.access_level        AS access_level,
     res.created_at        AS created_at,
     r.last_started_at     AS last_started_at,
+    r.deleted_at          AS deleted_at,
     o.user_id::text       AS owner_id,
     u.email               AS owner_email,
     u.full_name           AS owner_name
@@ -108,10 +109,18 @@ const ROOMS_SQL = `
     LIMIT 1
   ) o ON TRUE
   LEFT JOIN meet_user u ON u.id = o.user_id
-  WHERE r.deleted_at IS NULL
-  ORDER BY r.last_started_at DESC NULLS LAST, res.created_at DESC
+  WHERE ${filter}
+  ORDER BY ${order}
   LIMIT 2000
 `
+
+// Active rooms (the normal view) and, separately, the "trash" of soft-deleted
+// rooms that the admin view can restore or purge.
+const ROOMS_SQL = roomsQuery(
+  'r.deleted_at IS NULL',
+  'r.last_started_at DESC NULLS LAST, res.created_at DESC'
+)
+const DELETED_ROOMS_SQL = roomsQuery('r.deleted_at IS NOT NULL', 'r.deleted_at DESC')
 
 // Soft delete: set deleted_at like Meet does, only if not already deleted.
 // Returns the resource id (for logging) or null when nothing matched.
@@ -122,9 +131,38 @@ const SOFT_DELETE_SQL = `
   RETURNING resource_id::text AS id
 `
 
+// Restore: undo a soft delete (deleted_at back to NULL), only for a room that
+// is currently soft-deleted. The slug it was guarding becomes usable again.
+const RESTORE_SQL = `
+  UPDATE meet_room
+  SET deleted_at = NULL
+  WHERE slug = $1 AND deleted_at IS NOT NULL
+  RETURNING resource_id::text AS id
+`
+
+// Permanent delete, in child→parent order. Meet uses Django multi-table
+// inheritance and enforces cascade in Python, NOT in the database (the FKs have
+// no ON DELETE CASCADE), so the parent rows cannot be removed while children
+// still reference them: recordings and their accesses, resource accesses, then
+// the room (meet_room) and finally the resource (meet_resource) itself. Only a
+// soft-deleted room is ever purged — never a live/active one. If an upstream
+// migration adds another table pointing at a room/resource/recording, add its
+// DELETE here (and its grant in README.md) — this is the one place to follow.
+const PURGE_STEPS = [
+  `DELETE FROM meet_recording_access
+     WHERE recording_id IN (SELECT id FROM meet_recording WHERE room_id = $1)`,
+  `DELETE FROM meet_recording WHERE room_id = $1`,
+  `DELETE FROM meet_resource_access WHERE resource_id = $1`,
+  `DELETE FROM meet_room WHERE resource_id = $1`,
+  `DELETE FROM meet_resource WHERE id = $1`,
+]
+
 export const dbEnabled = () => config.db.enabled
 
-/** Whether room deletion is available (read DB + a write user configured). */
+/**
+ * Whether the admin write actions (soft-delete, restore, permanent purge) are
+ * available: the read DB is on AND a write user is configured.
+ */
 export const deleteEnabled = () => config.db.enabled && config.db.write.enabled
 
 /** Shape one SQL row into the room object the API returns. Pure (testable). */
@@ -137,6 +175,7 @@ export const mapRoomRow = (row) => ({
   lastStartedAt: row.last_started_at
     ? new Date(row.last_started_at).getTime()
     : null,
+  deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
   owner: row.owner_id
     ? {
         id: row.owner_id,
@@ -146,11 +185,19 @@ export const mapRoomRow = (row) => ({
     : null,
 })
 
-/** All rooms with their owner. Returns [] when the DB is not configured. */
+/** All active rooms with their owner. Returns [] when the DB is not configured. */
 export const listAllRooms = async () => {
   const p = getPool()
   if (!p) return []
   const { rows } = await p.query(ROOMS_SQL)
+  return rows.map(mapRoomRow)
+}
+
+/** The "trash": soft-deleted rooms, most recently deleted first. Read-only. */
+export const listDeletedRooms = async () => {
+  const p = getPool()
+  if (!p) return []
+  const { rows } = await p.query(DELETED_ROOMS_SQL)
   return rows.map(mapRoomRow)
 }
 
@@ -164,4 +211,49 @@ export const softDeleteRoom = async (slug) => {
   if (!p) throw new Error('room deletion is not configured')
   const { rows } = await p.query(SOFT_DELETE_SQL, [slug])
   return rows[0]?.id ?? null
+}
+
+/**
+ * Restore a soft-deleted room (deleted_at back to NULL), freeing the slug it was
+ * guarding. Returns the resource id when a room was restored, or null when none
+ * matched (unknown slug, or not currently deleted).
+ */
+export const restoreRoom = async (slug) => {
+  const p = getWritePool()
+  if (!p) throw new Error('room deletion is not configured')
+  const { rows } = await p.query(RESTORE_SQL, [slug])
+  return rows[0]?.id ?? null
+}
+
+/**
+ * Permanently delete a soft-deleted room and everything tied to it (accesses,
+ * recordings), in one transaction. Only a room that is already soft-deleted can
+ * be purged. Returns the resource id when a room was purged, or null when none
+ * matched. Irreversible.
+ */
+export const purgeRoom = async (slug) => {
+  const p = getWritePool()
+  if (!p) throw new Error('room deletion is not configured')
+  const client = await p.connect()
+  try {
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      `SELECT resource_id::text AS id FROM meet_room
+        WHERE slug = $1 AND deleted_at IS NOT NULL`,
+      [slug]
+    )
+    const id = rows[0]?.id ?? null
+    if (!id) {
+      await client.query('ROLLBACK')
+      return null
+    }
+    for (const step of PURGE_STEPS) await client.query(step, [id])
+    await client.query('COMMIT')
+    return id
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw error
+  } finally {
+    client.release()
+  }
 }
