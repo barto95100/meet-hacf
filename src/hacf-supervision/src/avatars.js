@@ -39,7 +39,12 @@ export const getAvatarImage = async (entry) => {
   const url = new URL(avatar, `${config.authentikUrl}/`)
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return remember(avatar, null)
   try {
-    const res = await httpGet(url.href, { maxBytes: 2 * 1024 * 1024, timeoutMs: 5000 })
+    const res = await httpGet(url.href, {
+      maxBytes: 2 * 1024 * 1024,
+      timeoutMs: 5000,
+      maxRedirects: 5,
+      headers: { 'user-agent': 'HACF-Meet-Supervision' },
+    })
     const contentType = String(res.headers['content-type'] || '').split(';')[0].trim()
     const ok =
       res.status === 200 && /^image\/(png|jpeg|gif|webp|avif)$/.test(contentType)
