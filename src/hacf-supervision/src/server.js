@@ -50,8 +50,9 @@ const checkAccess = async (req) => {
   return { status: isInAllowedGroup(entry) ? 200 : 403, meetUser }
 }
 
-// DB rooms enriched with their current LiveKit state (live + participant count,
-// keyed by slug, since the LiveKit room name is the Meet room slug).
+// DB rooms enriched with their current LiveKit state (live + participant count).
+// A registered room's LiveKit name is its Meet id (UUID), not its slug — see
+// core.api.serializers (room_id = str(instance.id)) — so we key by id.
 const roomsWithLiveState = async () => {
   const live = new Map()
   for (const room of await listRooms()) {
@@ -59,8 +60,8 @@ const roomsWithLiveState = async () => {
   }
   return (await listAllRooms()).map((room) => ({
     ...room,
-    live: live.has(room.slug),
-    participantCount: live.get(room.slug) ?? 0,
+    live: live.has(room.id),
+    participantCount: live.get(room.id) ?? 0,
   }))
 }
 
@@ -81,10 +82,25 @@ const routes = {
   async rooms(req, res) {
     const { status } = await checkAccess(req)
     if (status !== 200) return sendJson(res, status, { allowed: false })
+    const rooms = await listRooms()
+    // A registered room's LiveKit name is its Meet id (UUID). Resolve it to a
+    // readable name and slug from the database when available, so the live view
+    // shows "atelier-zigbee" rather than a raw UUID (unregistered/instant rooms
+    // keep their LiveKit name, which is already their slug).
+    if (dbEnabled()) {
+      const byId = new Map((await listAllRooms()).map((r) => [r.id, r]))
+      for (const room of rooms) {
+        const meta = byId.get(room.name)
+        if (meta) {
+          room.slug = meta.slug
+          room.displayName = meta.name || meta.slug
+        }
+      }
+    }
     sendJson(res, 200, {
       generatedAt: Date.now(),
       meetUrl: config.meetPublicUrl || null,
-      rooms: await listRooms(),
+      rooms,
     })
   },
 
@@ -145,7 +161,8 @@ const routes = {
 
     const resourceId = await softDeleteRoom(slug)
     if (resourceId) {
-      await closeRoom(slug)
+      // The LiveKit room name is the Meet room id (UUID), not the slug.
+      await closeRoom(resourceId)
       console.log(
         `[rooms] ${meetUser.email} soft-deleted room "${slug}" (resource ${resourceId})`
       )

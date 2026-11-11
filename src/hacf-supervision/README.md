@@ -39,7 +39,7 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | Avatar d'un participant | Même annuaire : identité LiveKit = `sub` OIDC envoyé par Authentik (`uid` en mode par défaut « hashed user ID » ; pk, UUID, username, e-mail et UPN aussi reconnus) |
 | Réunions en cours | API LiveKit `ListRooms` / `ListParticipants` |
 | Salles enregistrées | Base PostgreSQL de Meet, en lecture seule (tables `meet_resource`, `meet_room`, `meet_resource_access`, `meet_user`) |
-| Salle en ligne ? | Croisement du *slug* avec les réunions LiveKit en cours |
+| Salle en ligne ? | Croisement de l'*id* de la salle avec les réunions LiveKit en cours (une salle enregistrée porte son UUID Meet comme nom LiveKit, pas son slug) |
 
 ## API
 
