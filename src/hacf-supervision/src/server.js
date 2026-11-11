@@ -8,7 +8,15 @@ import { findUserByEmail, findUserByIdentity, isInAllowedGroup } from './authent
 import { getAvatarImage } from './avatars.js'
 import { closeRoom, listRooms } from './livekit.js'
 import { getMetrics, startMetrics } from './metrics.js'
-import { dbEnabled, deleteEnabled, listAllRooms, softDeleteRoom } from './db.js'
+import {
+  dbEnabled,
+  deleteEnabled,
+  listAllRooms,
+  listDeletedRooms,
+  purgeRoom,
+  restoreRoom,
+  softDeleteRoom,
+} from './db.js'
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url))
 const API = `${config.basePath}/api`
@@ -48,6 +56,32 @@ const checkAccess = async (req) => {
   if (!meetUser) return { status: 401, meetUser: null }
   const entry = await findUserByEmail(meetUser.email)
   return { status: isInAllowedGroup(entry) ? 200 : 403, meetUser }
+}
+
+/**
+ * Guard shared by the three state-changing room actions (soft-delete, restore,
+ * permanent purge). Sends the error response itself and returns null when the
+ * request is not allowed; otherwise returns the acting Meet user.
+ *
+ * CSRF guard: a cross-site page cannot set this custom header without a CORS
+ * preflight, which this same-origin-only service never grants. With a non-simple
+ * method (POST/DELETE) this blocks cross-site state changes.
+ */
+const guardRoomWrite = async (req, res) => {
+  if (req.headers['x-hacf-supervision'] !== '1') {
+    sendJson(res, 403, { ok: false, error: 'forbidden' })
+    return null
+  }
+  const { status, meetUser } = await checkAccess(req)
+  if (status !== 200) {
+    sendJson(res, status, { ok: false })
+    return null
+  }
+  if (!deleteEnabled()) {
+    sendJson(res, 200, { ok: false, available: false })
+    return null
+  }
+  return meetUser
 }
 
 // DB rooms enriched with their current LiveKit state (live + participant count).
@@ -136,12 +170,14 @@ const routes = {
     if (!dbEnabled()) return sendJson(res, 200, { available: false })
     sendJson(res, 200, {
       available: true,
-      // Whether this view may soft-delete rooms (write user configured). Lets
-      // the UI hide the delete control when the server cannot honour it.
+      // Whether this view may change rooms (write user configured). Lets the UI
+      // hide the delete/restore/purge controls when the server can't honour them.
       canDelete: deleteEnabled(),
       generatedAt: Date.now(),
       meetUrl: config.meetPublicUrl || null,
       rooms: await roomsWithLiveState(),
+      // The "trash": soft-deleted rooms, to restore or purge.
+      deletedRooms: await listDeletedRooms(),
     })
   },
 
@@ -149,16 +185,8 @@ const routes = {
   // Meet's own DELETE: set deleted_at (reversible) and close the live LiveKit
   // room. Not an erase — the row, slug and recordings are kept.
   async deleteRoom(req, res, slug) {
-    // CSRF guard: a cross-site page cannot set this custom header without a CORS
-    // preflight, which this same-origin-only service never grants. With the
-    // DELETE method (not a "simple" request) this blocks cross-site deletion.
-    if (req.headers['x-hacf-supervision'] !== '1') {
-      return sendJson(res, 403, { ok: false, error: 'forbidden' })
-    }
-    const { status, meetUser } = await checkAccess(req)
-    if (status !== 200) return sendJson(res, status, { ok: false })
-    if (!deleteEnabled()) return sendJson(res, 200, { ok: false, available: false })
-
+    const meetUser = await guardRoomWrite(req, res)
+    if (!meetUser) return
     const resourceId = await softDeleteRoom(slug)
     if (resourceId) {
       // The LiveKit room name is the Meet room id (UUID), not the slug.
@@ -168,6 +196,36 @@ const routes = {
       )
     }
     sendJson(res, 200, { ok: true, available: true, deleted: Boolean(resourceId) })
+  },
+
+  // Restore a soft-deleted room from the trash (deleted_at back to NULL). The
+  // slug it was guarding becomes usable again. Reserved to the allowed group.
+  async restoreRoom(req, res, slug) {
+    const meetUser = await guardRoomWrite(req, res)
+    if (!meetUser) return
+    const resourceId = await restoreRoom(slug)
+    if (resourceId) {
+      console.log(
+        `[rooms] ${meetUser.email} restored room "${slug}" (resource ${resourceId})`
+      )
+    }
+    sendJson(res, 200, { ok: true, available: true, restored: Boolean(resourceId) })
+  },
+
+  // Permanently delete a soft-deleted room and everything tied to it. This is
+  // irreversible and frees the slug for good. Reserved to the allowed group; a
+  // live/active room cannot be purged (only soft-deleted ones).
+  async purgeRoom(req, res, slug) {
+    const meetUser = await guardRoomWrite(req, res)
+    if (!meetUser) return
+    const resourceId = await purgeRoom(slug)
+    if (resourceId) {
+      await closeRoom(resourceId)
+      console.log(
+        `[rooms] ${meetUser.email} PERMANENTLY deleted room "${slug}" (resource ${resourceId})`
+      )
+    }
+    sendJson(res, 200, { ok: true, available: true, purged: Boolean(resourceId) })
   },
 
   // Avatars are visible to any user logged in to Meet (they already see each
@@ -216,14 +274,20 @@ const serveStatic = async (res, path) => {
 const handle = async (req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost')
 
-  // The only state-changing route: DELETE a room from the admin view.
-  const deleteMatch = pathname.match(new RegExp(`^${API}/rooms/([^/]{1,200})$`))
-  if (req.method === 'DELETE' && deleteMatch) {
-    return routes.deleteRoom(req, res, decodeURIComponent(deleteMatch[1]))
+  // State-changing room actions (admin view): soft-delete, restore, purge.
+  const roomAction = pathname.match(
+    new RegExp(`^${API}/rooms/([^/]{1,200})(?:/(restore|purge))?$`)
+  )
+  if (roomAction) {
+    const slug = decodeURIComponent(roomAction[1])
+    const action = roomAction[2]
+    if (!action && req.method === 'DELETE') return routes.deleteRoom(req, res, slug)
+    if (action === 'restore' && req.method === 'POST') return routes.restoreRoom(req, res, slug)
+    if (action === 'purge' && req.method === 'POST') return routes.purgeRoom(req, res, slug)
   }
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return send(res, 405, '', { allow: 'GET, HEAD, DELETE' })
+    return send(res, 405, '', { allow: 'GET, HEAD, POST, DELETE' })
   }
 
   if (pathname === `${API}/health`) return routes.health(req, res)

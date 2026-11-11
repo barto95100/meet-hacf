@@ -79,7 +79,12 @@
     "copied": "Copied",
     "delete": "Delete",
     "confirmDelete": "Confirm deletion",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "trashTitle": "Trash",
+    "deletedOn": "deleted on {{date}}",
+    "restore": "Restore",
+    "purge": "Delete permanently",
+    "confirmPurge": "Confirm permanent deletion"
   },
   "diagnostics": {
     "label": "Diagnostics",

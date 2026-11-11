@@ -79,7 +79,12 @@
     "copied": "Copié",
     "delete": "Supprimer",
     "confirmDelete": "Confirmer la suppression",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "trashTitle": "Corbeille",
+    "deletedOn": "supprimée le {{date}}",
+    "restore": "Restaurer",
+    "purge": "Supprimer définitivement",
+    "confirmPurge": "Confirmer la suppression définitive"
   },
   "diagnostics": {
     "label": "Diagnostic",

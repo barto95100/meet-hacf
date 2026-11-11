@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'wouter'
 import {
   RiArrowLeftLine,
+  RiArrowGoBackLine,
   RiDeleteBinLine,
+  RiDeleteBin2Line,
   RiFileCopyLine,
   RiLoginBoxLine,
   RiCheckLine,
@@ -21,6 +23,8 @@ import {
   RoomOwner,
   roomUrl,
   useAdminDeleteRoom,
+  useAdminPurgeRoom,
+  useAdminRestoreRoom,
   useAllRooms,
   useDeleteRoom,
   useMyRooms,
@@ -104,8 +108,14 @@ const Badge = ({
     })}
     style={
       tone === 'live'
-        ? { backgroundColor: 'oklch(72% 0.17 150 / .16)', color: 'oklch(84% 0.14 150)' }
-        : { backgroundColor: 'rgba(255,255,255,.07)', color: 'var(--hacf-text-subtle)' }
+        ? {
+            backgroundColor: 'oklch(72% 0.17 150 / .16)',
+            color: 'oklch(84% 0.14 150)',
+          }
+        : {
+            backgroundColor: 'rgba(255,255,255,.07)',
+            color: 'var(--hacf-text-subtle)',
+          }
     }
   >
     {tone === 'live' && (
@@ -215,7 +225,9 @@ const RoomCard = ({
             /{room.slug}
           </span>
           {room.createdAt && (
-            <span>· {t('created', { date: dateFmt.format(room.createdAt) })}</span>
+            <span>
+              · {t('created', { date: dateFmt.format(room.createdAt) })}
+            </span>
           )}
         </div>
       </div>
@@ -237,7 +249,11 @@ const RoomCard = ({
           <RiLoginBoxLine size={15} aria-hidden="true" />
           {t('join')}
         </a>
-        <button type="button" onClick={copy} className={cx(ghostButton, smallButton)}>
+        <button
+          type="button"
+          onClick={copy}
+          className={cx(ghostButton, smallButton)}
+        >
           {copied ? (
             <RiCheckLine size={15} aria-hidden="true" />
           ) : (
@@ -284,6 +300,122 @@ const RoomCard = ({
   )
 }
 
+/** A soft-deleted room in the trash: restore it, or delete it permanently. */
+const DeletedRoomCard = ({ room }: { room: ManagedRoom }) => {
+  const { t } = useTranslation('hacf', { keyPrefix: 'rooms' })
+  const [confirming, setConfirming] = useState(false)
+  const restore = useAdminRestoreRoom()
+  const purge = useAdminPurgeRoom()
+  const busy = restore.isPending || purge.isPending
+
+  return (
+    <li
+      className={css({
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '12px 16px',
+        padding: '14px 18px',
+        borderRadius: '16px',
+        backgroundColor: 'rgba(255,255,255,.02)',
+        border: '1px dashed rgba(255,255,255,.12)',
+      })}
+    >
+      <div className={css({ flex: '1 1 240px', minWidth: 0 })}>
+        <span
+          className={css({
+            fontSize: '15px',
+            fontWeight: 600,
+            color: 'var(--hacf-text-soft)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+          })}
+        >
+          {room.name || room.slug}
+        </span>
+        <div
+          className={css({
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '4px',
+            fontSize: '13px',
+            color: 'var(--hacf-text-subtle)',
+            flexWrap: 'wrap',
+          })}
+        >
+          <span className={css({ fontFamily: 'var(--hacf-font-mono)' })}>
+            /{room.slug}
+          </span>
+          {!!(room.owner?.name || room.owner?.email) && (
+            <span>· {room.owner?.name || room.owner?.email}</span>
+          )}
+          {room.deletedAt && (
+            <span>
+              · {t('deletedOn', { date: dateFmt.format(room.deletedAt) })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={css({
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+        })}
+      >
+        <button
+          type="button"
+          onClick={() => restore.mutate(room.slug)}
+          disabled={busy}
+          className={cx(ghostButton, smallButton)}
+        >
+          <RiArrowGoBackLine size={15} aria-hidden="true" />
+          {t('restore')}
+        </button>
+        {confirming ? (
+          <span className={css({ display: 'inline-flex', gap: '6px' })}>
+            <button
+              type="button"
+              onClick={() => purge.mutate(room.slug)}
+              disabled={busy}
+              className={cx(ghostButton, smallButton)}
+              style={{
+                borderColor: 'var(--hacf-error)',
+                color: 'var(--hacf-error)',
+              }}
+            >
+              {t('confirmPurge')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className={cx(ghostButton, smallButton)}
+            >
+              {t('cancel')}
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            aria-label={t('purge')}
+            title={t('purge')}
+            className={cx(ghostButton, smallButton)}
+            style={{ color: 'var(--hacf-error)' }}
+          >
+            <RiDeleteBin2Line size={15} aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </li>
+  )
+}
+
 const sectionTitle = css({
   fontSize: '13px',
   fontWeight: 600,
@@ -318,7 +450,10 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
   const { data } = useAllRooms(true)
 
   const groups = useMemo(() => {
-    const byOwner = new Map<string, { owner: RoomOwner | null; rooms: ManagedRoom[] }>()
+    const byOwner = new Map<
+      string,
+      { owner: RoomOwner | null; rooms: ManagedRoom[] }
+    >()
     for (const room of data?.rooms ?? []) {
       // The viewer's own rooms already appear under "My rooms"; this admin
       // view is about the other users' rooms.
@@ -338,67 +473,93 @@ const AllRoomsSection = ({ myUserId }: { myUserId: string | undefined }) => {
     })
   }, [data, myUserId])
 
+  const deletedRooms = data?.deletedRooms ?? []
+
   if (!data?.available) return null
 
   return (
-    <section
-      className={css({ marginTop: '44px' })}
-      aria-label={t('allTitle')}
-    >
-      <h2 className={sectionTitle}>{t('allTitle')}</h2>
-      {groups.length === 0 ? (
-        <p className={emptyText}>{t('allEmpty')}</p>
-      ) : (
-        <div className={css({ display: 'flex', flexDirection: 'column', gap: '26px' })}>
-          {groups.map((group, i) => (
-            <div key={group.owner?.id || i}>
-              <div
-                className={css({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '10px',
-                })}
-              >
-                <OwnerAvatar owner={group.owner} />
-                <div className={css({ minWidth: 0 })}>
-                  <div
-                    className={css({
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    })}
-                  >
-                    {group.owner?.name || group.owner?.email || t('unknownOwner')}
-                  </div>
-                  <div
-                    className={css({
-                      fontSize: '12px',
-                      color: 'var(--hacf-text-subtle)',
-                    })}
-                  >
-                    {t('roomCount', { count: group.rooms.length })}
+    <>
+      <section
+        className={css({ marginTop: '44px' })}
+        aria-label={t('allTitle')}
+      >
+        <h2 className={sectionTitle}>{t('allTitle')}</h2>
+        {groups.length === 0 ? (
+          <p className={emptyText}>{t('allEmpty')}</p>
+        ) : (
+          <div
+            className={css({
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '26px',
+            })}
+          >
+            {groups.map((group, i) => (
+              <div key={group.owner?.id || i}>
+                <div
+                  className={css({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '10px',
+                  })}
+                >
+                  <OwnerAvatar owner={group.owner} />
+                  <div className={css({ minWidth: 0 })}>
+                    <div
+                      className={css({
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      })}
+                    >
+                      {group.owner?.name ||
+                        group.owner?.email ||
+                        t('unknownOwner')}
+                    </div>
+                    <div
+                      className={css({
+                        fontSize: '12px',
+                        color: 'var(--hacf-text-subtle)',
+                      })}
+                    >
+                      {t('roomCount', { count: group.rooms.length })}
+                    </div>
                   </div>
                 </div>
+                <ul className={listReset}>
+                  {group.rooms.map((room) => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      meetUrl={data.meetUrl}
+                      canManage={data.canDelete}
+                      admin
+                    />
+                  ))}
+                </ul>
               </div>
-              <ul className={listReset}>
-                {group.rooms.map((room) => (
-                  <RoomCard
-                    key={room.id}
-                    room={room}
-                    meetUrl={data.meetUrl}
-                    canManage={data.canDelete}
-                    admin
-                  />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {data.canDelete && deletedRooms.length > 0 && (
+        <section
+          className={css({ marginTop: '44px' })}
+          aria-label={t('trashTitle')}
+        >
+          <h2 className={sectionTitle}>{t('trashTitle')}</h2>
+          <ul className={listReset}>
+            {deletedRooms.map((room) => (
+              <DeletedRoomCard key={room.id} room={room} />
+            ))}
+          </ul>
+        </section>
       )}
-    </section>
+    </>
   )
 }
 

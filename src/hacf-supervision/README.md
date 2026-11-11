@@ -27,6 +27,16 @@ Petit service HACF, à côté de Meet (le backend Meet n'est pas modifié) :
   la fermeture de la salle LiveKit en cours. **Rien n'est effacé.** Nécessite un second
   utilisateur PostgreSQL d'écriture, très restreint (voir plus bas) ; désactivée si
   `DB_WRITE_*` n'est pas configuré.
+- **Corbeille** (`POST …/rooms/<slug>/restore`, `POST …/rooms/<slug>/purge`) : la vue
+  admin liste les salles *soft-delete* et offre deux actions, réservées au même groupe.
+  **Restaurer** remet `deleted_at` à `NULL` (la salle et son nom reviennent ; aucun droit
+  supplémentaire, `UPDATE (deleted_at)` suffit). **Supprimer définitivement** efface
+  réellement la salle et tout ce qui en dépend (accès, enregistrements) en une
+  transaction, dans l'ordre enfant→parent — Meet gère la cascade côté Python, pas en base,
+  donc on la reproduit à la main. C'est **irréversible** et ça **libère le nom** (sinon un
+  slug *soft-delete* reste réservé et bloque la recréation d'une salle du même nom). Seule
+  une salle déjà *soft-delete* peut être purgée. La purge demande des droits élargis sur
+  `meet_rw` (voir plus bas).
 
 Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le navigateur.
 
@@ -51,6 +61,8 @@ Le secret LiveKit et le jeton Authentik restent sur le serveur, jamais dans le n
 | `GET /supervision/api/my-rooms` | connecté | salles de l'utilisateur (ou `{available:false}`) |
 | `GET /supervision/api/all-rooms` | connecté + groupe | toutes les salles avec propriétaire (ou `{available:false}`) |
 | `DELETE /supervision/api/rooms/<slug>` | connecté + groupe | soft-delete d'une salle (en-tête `x-hacf-supervision: 1` requis) |
+| `POST /supervision/api/rooms/<slug>/restore` | connecté + groupe | restaure une salle soft-delete (en-tête requis) |
+| `POST /supervision/api/rooms/<slug>/purge` | connecté + groupe | suppression définitive, irréversible (en-tête requis) |
 | `GET /supervision/api/metrics` | connecté + groupe | santé du serveur LiveKit (ou `{available:false}`) |
 | `GET /supervision/api/avatar/me` | connecté | photo de l'utilisateur, 404 sans photo |
 | `GET /supervision/api/avatar/<identité>` | connecté | photo d'un participant, 404 sans photo |
@@ -108,14 +120,35 @@ CREATE USER meet_rw WITH PASSWORD 'un-autre-mot-de-passe-solide';
 GRANT CONNECT ON DATABASE meet TO meet_rw;
 GRANT USAGE ON SCHEMA public TO meet_rw;
 GRANT SELECT ON meet_room TO meet_rw;             -- retrouver la salle par son slug
-GRANT UPDATE (deleted_at) ON meet_room TO meet_rw; -- soft-delete, rien d'autre
+GRANT UPDATE (deleted_at) ON meet_room TO meet_rw; -- soft-delete ET restauration
 ```
 
-Le service n'exécute avec cet utilisateur qu'un `UPDATE meet_room SET deleted_at = now()
-WHERE slug = … AND deleted_at IS NULL`, exactement comme la suppression de Meet
-(`core.services.room_management.soft_delete`). La salle reste en base (réversible en
-remettant `deleted_at` à `NULL`). La fermeture de la session LiveKit en cours utilise
-les accès LiveKit déjà configurés. Sans `DB_WRITE_*`, la suppression est désactivée.
+Avec ces droits, le service fait le *soft-delete* (`UPDATE meet_room SET deleted_at =
+now() WHERE slug = … AND deleted_at IS NULL`, exactement comme Meet —
+`core.services.room_management.soft_delete`) et la **restauration** (le même `UPDATE`
+remettant `deleted_at` à `NULL`). La fermeture de la session LiveKit en cours utilise les
+accès LiveKit déjà configurés. Sans `DB_WRITE_*`, toutes ces actions sont désactivées.
+
+**Suppression définitive (purge) — droits élargis, optionnels.** Pour que la vue admin
+puisse *effacer* réellement une salle soft-delete (et libérer son nom), `meet_rw` doit
+pouvoir supprimer la salle et tout ce qui la référence. Meet n'ayant pas de
+`ON DELETE CASCADE` en base, on efface dans l'ordre enfant→parent :
+
+```sql
+-- Optionnel : uniquement si vous voulez la suppression DÉFINITIVE depuis l'admin.
+GRANT SELECT ON meet_recording TO meet_rw;        -- retrouver les enregistrements de la salle
+GRANT DELETE ON meet_recording_access TO meet_rw;
+GRANT DELETE ON meet_recording TO meet_rw;
+GRANT DELETE ON meet_resource_access TO meet_rw;
+GRANT DELETE ON meet_room TO meet_rw;
+GRANT DELETE ON meet_resource TO meet_rw;
+```
+
+La purge ne porte que sur une salle **déjà soft-delete** et s'exécute en une transaction
+(tout ou rien). Si vous ne posez pas ces droits, « Restaurer » marche quand même ;
+« Supprimer définitivement » échoue simplement sans rien casser. Si une mise à jour de
+Meet ajoute une table pointant vers une salle/ressource/enregistrement, ajoutez son
+`DELETE` ici **et** dans `PURGE_STEPS` de `src/db.js`.
 
 ## Développement
 
