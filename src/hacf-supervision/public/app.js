@@ -124,7 +124,11 @@ const participantItem = (participant) =>
 
 const roomCard = (room, meetUrl) => {
   const count = room.participants.length
-  const link = `${meetUrl || location.origin}/${encodeURIComponent(room.name)}`
+  // A registered room's LiveKit name is its Meet id (UUID); the server resolves
+  // a readable slug/displayName from the database. Fall back to the raw name.
+  const title = room.displayName || room.name
+  const joinSlug = room.slug || room.name
+  const link = `${meetUrl || location.origin}/${encodeURIComponent(joinSlug)}`
   return el(
     'article',
     {
@@ -138,7 +142,7 @@ const roomCard = (room, meetUrl) => {
       el(
         'div',
         {},
-        el('h2', { id: `title-${room.name}` }, room.name),
+        el('h2', { id: `title-${room.name}` }, title),
         el(
           'div',
           { class: 'room-meta' },
@@ -151,7 +155,7 @@ const roomCard = (room, meetUrl) => {
       el('a', { class: 'button', href: link, target: '_blank', rel: 'noopener noreferrer' }, 'Rejoindre')
     ),
     count
-      ? el('ul', { class: 'participants', 'aria-label': `Participants de ${room.name}` }, room.participants.map(participantItem))
+      ? el('ul', { class: 'participants', 'aria-label': `Participants de ${title}` }, room.participants.map(participantItem))
       : el('p', { class: 'empty' }, 'Personne pour le moment.')
   )
 }
